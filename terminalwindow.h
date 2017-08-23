@@ -11,6 +11,7 @@
 QT_FORWARD_DECLARE_CLASS(QLabel)
 QT_FORWARD_DECLARE_CLASS(QVBoxLayout)
 QT_FORWARD_DECLARE_CLASS(QTermWidget);
+QT_FORWARD_DECLARE_CLASS(QToolButton);
 
 namespace Terminal {
 namespace Internal {
@@ -69,10 +70,12 @@ public:
 
 private slots:
     void terminalFinished();
+    void sync();
 
 private:
     QString currentDocumentPath() const;
     TerminalContainer *m_terminalContainer;
+    QToolButton *m_sync;
 };
 
 } // namespace Internal

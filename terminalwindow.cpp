@@ -12,10 +12,12 @@
 #include <texteditor/texteditorsettings.h>
 #include <utils/environment.h>
 #include <utils/fileutils.h>
+#include <utils/utilsicons.h>
 
 #include <QDir>
 #include <QIcon>
 #include <QMenu>
+#include <QToolButton>
 #include <QVBoxLayout>
 
 #include <qtermwidget5/qtermwidget.h>
@@ -135,6 +137,14 @@ TerminalWindow::TerminalWindow(QObject *parent)
    , m_terminalContainer(0)
 {
     Core::Context context("Terminal.Window");
+
+    m_sync = new QToolButton();
+    m_sync->setEnabled(false);
+    m_sync->setIcon(Utils::Icons::LINK.icon());
+    m_sync->setToolTip(tr("Synchronize with Editor"));
+    connect(m_sync, &QAbstractButton::clicked, this, &TerminalWindow::sync);
+    connect(Core::EditorManager::instance(), &Core::EditorManager::currentEditorChanged,
+            this, [this](Core::IEditor *editor) { m_sync->setEnabled(editor); });
 }
 
 QWidget *TerminalWindow::outputWidget(QWidget *parent)
@@ -149,7 +159,7 @@ QWidget *TerminalWindow::outputWidget(QWidget *parent)
 
 QList<QWidget *> TerminalWindow::toolBarWidgets() const
 {
-    return QList<QWidget *>();
+    return { m_sync };
 }
 
 QString TerminalWindow::displayName() const
@@ -168,6 +178,15 @@ void TerminalWindow::clearContents()
         return;
     QString cmd = "clear\n";
     m_terminalContainer->termWidget()->sendText(cmd);
+}
+
+void TerminalWindow::sync()
+{
+    if (!m_terminalContainer || !m_terminalContainer->termWidget())
+        return;
+    QString docPath = currentDocumentPath();
+    if (!docPath.isEmpty())
+        m_terminalContainer->termWidget()->changeDir(docPath);
 }
 
 void TerminalWindow::visibilityChanged(bool visible)
