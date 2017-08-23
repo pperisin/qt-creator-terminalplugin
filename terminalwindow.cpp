@@ -33,16 +33,19 @@ TerminalContainer::TerminalContainer(QWidget *parent)
 
     m_copy = new QAction("Copy", this);
     m_copy->setShortcut(QKeySequence::Copy);
+    m_copy->setShortcutContext(Qt::WidgetWithChildrenShortcut);
     connect(m_copy, &QAction::triggered, this, &TerminalContainer::copyInvoked);
     addAction(m_copy);
 
     m_paste = new QAction("Paste", this);
     m_paste->setShortcut(QKeySequence::Paste);
+    m_paste->setShortcutContext(Qt::WidgetWithChildrenShortcut);
     connect(m_paste, &QAction::triggered, this, &TerminalContainer::pasteInvoked);
     addAction(m_paste);
 
     m_close = new QAction("Close", this);
     m_close->setShortcut(QKeySequence::Close);
+    m_close->setShortcutContext(Qt::WidgetWithChildrenShortcut);
     connect(m_close, &QAction::triggered, this, &TerminalContainer::closeInvoked);
     addAction(m_close);
 
