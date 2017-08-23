@@ -21,12 +21,12 @@ class TerminalContainer : public QWidget
 
 public:
     TerminalContainer(QWidget *parent);
-    void initializeTerm();
+    void initializeTerm(const QString & workingDirectory = QString());
 
     QTermWidget *termWidget() const { return m_termWidget; }
 
 signals:
-    void termInitialized();
+    void finished();
 
 private slots:
     void contextMenuRequested(const QPoint &);
@@ -34,7 +34,6 @@ private slots:
     void copyInvoked();
     void pasteInvoked();
     void closeInvoked();
-    void finishedInvoked();
 
 private:
     QVBoxLayout *m_layout;
@@ -69,9 +68,10 @@ public:
     virtual void goToPrev();
 
 private slots:
-    void termInitialized();
+    void terminalFinished();
 
 private:
+    QString currentDocumentPath() const;
     TerminalContainer *m_terminalContainer;
 };
 

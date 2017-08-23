@@ -52,7 +52,7 @@ TerminalContainer::TerminalContainer(QWidget *parent)
     initializeTerm();
 }
 
-void TerminalContainer::initializeTerm()
+void TerminalContainer::initializeTerm(const QString & workingDirectory)
 {
     if (m_termWidget) {
         delete m_layout;
@@ -87,16 +87,16 @@ void TerminalContainer::initializeTerm()
     setLayout(m_layout);
 
     connect(m_termWidget, &QTermWidget::copyAvailable, this, &TerminalContainer::copyAvailable);
-    connect(m_termWidget, &QTermWidget::finished, this, &TerminalContainer::finishedInvoked);
+    connect(m_termWidget, &QTermWidget::finished, this, &TerminalContainer::finished);
 
-    m_termWidget->setWorkingDirectory(QDir::homePath());
+    m_termWidget->setWorkingDirectory(workingDirectory.isEmpty() ? QDir::homePath()
+                                                                 : workingDirectory);
     Utils::Environment env = Utils::Environment::systemEnvironment();
     env.set("TERM_PROGRAM", QString("qtermwidget5"));
     env.set("TERM", QString("xterm-256color"));
     env.set("QTCREATOR_PID", QString("%1").arg(QCoreApplication::applicationPid()));
     m_termWidget->setEnvironment(env.toStringList());
     m_termWidget->startShellProgram();
-    emit termInitialized();
 }
 
 void TerminalContainer::contextMenuRequested(const QPoint &point)
@@ -130,11 +130,6 @@ void TerminalContainer::closeInvoked()
     m_termWidget->sendText(cmd);
 }
 
-void TerminalContainer::finishedInvoked()
-{
-    initializeTerm();
-}
-
 TerminalWindow::TerminalWindow(QObject *parent)
    : IOutputPane(parent)
    , m_terminalContainer(0)
@@ -144,10 +139,11 @@ TerminalWindow::TerminalWindow(QObject *parent)
 
 QWidget *TerminalWindow::outputWidget(QWidget *parent)
 {
-    if (!m_terminalContainer)
+    if (!m_terminalContainer) {
         m_terminalContainer = new TerminalContainer(parent);
-    connect(m_terminalContainer, &TerminalContainer::termInitialized,
-            this, &TerminalWindow::termInitialized);
+        connect(m_terminalContainer, &TerminalContainer::finished,
+                this, &TerminalWindow::terminalFinished);
+    }
     return m_terminalContainer;
 }
 
@@ -180,17 +176,23 @@ void TerminalWindow::visibilityChanged(bool visible)
     if (!m_terminalContainer || !m_terminalContainer->termWidget() || initialized || !visible)
         return;
 
-    m_terminalContainer->initializeTerm();
+    m_terminalContainer->initializeTerm(currentDocumentPath());
     initialized = true;
 }
 
-void TerminalWindow::termInitialized()
+void TerminalWindow::terminalFinished()
 {
+    m_terminalContainer->initializeTerm(currentDocumentPath());
+}
+
+QString TerminalWindow::currentDocumentPath() const
+{  
     if (Core::IDocument *doc = Core::EditorManager::instance()->currentDocument()) {
         const QDir dir = doc->filePath().toFileInfo().absoluteDir();
         if (dir.exists())
-            m_terminalContainer->termWidget()->setWorkingDirectory(dir.canonicalPath());
+            return dir.canonicalPath();
     }
+    return QString();
 }
 
 void TerminalWindow::setFocus()
