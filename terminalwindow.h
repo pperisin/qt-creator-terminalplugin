@@ -74,6 +74,7 @@ private slots:
 
 private:
     QString currentDocumentPath() const;
+    Core::IContext *m_context;
     TerminalContainer *m_terminalContainer;
     QToolButton *m_sync;
 };

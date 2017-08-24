@@ -4,9 +4,13 @@
 
 #include "terminalwindow.h"
 
+#include <coreplugin/actionmanager/actionmanager.h>
+#include <coreplugin/actionmanager/command.h>
 #include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/editormanager/ieditor.h>
+#include <coreplugin/find/basetextfind.h>
 #include <coreplugin/icontext.h>
+#include <coreplugin/icore.h>
 #include <extensionsystem/pluginmanager.h>
 #include <texteditor/fontsettings.h>
 #include <texteditor/texteditorsettings.h>
@@ -33,23 +37,19 @@ TerminalContainer::TerminalContainer(QWidget *parent)
     connect(this, &QWidget::customContextMenuRequested,
             this, &TerminalContainer::contextMenuRequested);
 
+    Core::Context context("Terminal.Window");
+
     m_copy = new QAction("Copy", this);
-    m_copy->setShortcut(QKeySequence::Copy);
-    m_copy->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+    Core::ActionManager::registerAction(m_copy, "Terminal.Copy", context)->setDefaultKeySequence(QKeySequence::Copy);
     connect(m_copy, &QAction::triggered, this, &TerminalContainer::copyInvoked);
-    addAction(m_copy);
 
     m_paste = new QAction("Paste", this);
-    m_paste->setShortcut(QKeySequence::Paste);
-    m_paste->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+    Core::ActionManager::registerAction(m_paste, "Terminal.Paste", context)->setDefaultKeySequence(QKeySequence::Paste);
     connect(m_paste, &QAction::triggered, this, &TerminalContainer::pasteInvoked);
-    addAction(m_paste);
 
     m_close = new QAction("Close", this);
-    m_close->setShortcut(QKeySequence::Close);
-    m_close->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+    Core::ActionManager::registerAction(m_close, "Terminal.Close", context)->setDefaultKeySequence(QKeySequence::Close);
     connect(m_close, &QAction::triggered, this, &TerminalContainer::closeInvoked);
-    addAction(m_close);
 
     initializeTerm();
 }
@@ -134,9 +134,11 @@ void TerminalContainer::closeInvoked()
 
 TerminalWindow::TerminalWindow(QObject *parent)
    : IOutputPane(parent)
+   , m_context(new Core::IContext(this))
    , m_terminalContainer(0)
 {
     Core::Context context("Terminal.Window");
+    m_context->setContext(context);
 
     m_sync = new QToolButton();
     m_sync->setEnabled(false);
@@ -153,6 +155,9 @@ QWidget *TerminalWindow::outputWidget(QWidget *parent)
         m_terminalContainer = new TerminalContainer(parent);
         connect(m_terminalContainer, &TerminalContainer::finished,
                 this, &TerminalWindow::terminalFinished);
+
+        m_context->setWidget(m_terminalContainer->termWidget());
+        Core::ICore::addContextObject(m_context);
     }
     return m_terminalContainer;
 }
