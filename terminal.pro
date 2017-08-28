@@ -1,10 +1,12 @@
 DEFINES += TERMINALPLUGIN_LIBRARY
 
 HEADERS += terminalplugin.h \
-           terminalwindow.h
+           terminalwindow.h \
+           findsupport.h
 
 SOURCES += terminalplugin.cpp \
-           terminalwindow.cpp
+           terminalwindow.cpp \
+           findsupport.cpp
 
 INCLUDEPATH += /usr/local/include
 

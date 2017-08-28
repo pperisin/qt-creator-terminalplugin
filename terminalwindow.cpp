@@ -25,6 +25,7 @@
 #include <QVBoxLayout>
 
 #include <qtermwidget5/qtermwidget.h>
+#include "findsupport.h"
 
 namespace Terminal {
 namespace Internal {
@@ -99,6 +100,8 @@ void TerminalContainer::initializeTerm(const QString & workingDirectory)
     env.set("QTCREATOR_PID", QString("%1").arg(QCoreApplication::applicationPid()));
     m_termWidget->setEnvironment(env.toStringList());
     m_termWidget->startShellProgram();
+
+    emit termWidgetChanged(m_termWidget);
 }
 
 void TerminalContainer::contextMenuRequested(const QPoint &point)
@@ -158,6 +161,14 @@ QWidget *TerminalWindow::outputWidget(QWidget *parent)
 
         m_context->setWidget(m_terminalContainer->termWidget());
         Core::ICore::addContextObject(m_context);
+
+        auto findSupport = new FindSupport(m_terminalContainer->termWidget());
+        connect(m_terminalContainer, &TerminalContainer::termWidgetChanged,
+                findSupport, &FindSupport::setTerminal);
+
+        Aggregation::Aggregate *agg = new Aggregation::Aggregate;
+        agg->add(m_terminalContainer);
+        agg->add(findSupport);
     }
     return m_terminalContainer;
 }

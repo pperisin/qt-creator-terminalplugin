@@ -27,6 +27,7 @@ public:
     QTermWidget *termWidget() const { return m_termWidget; }
 
 signals:
+    void termWidgetChanged(QTermWidget * termWdiget);
     void finished();
 
 private slots:
