@@ -41,15 +41,16 @@ TerminalContainer::TerminalContainer(QWidget *parent)
     Core::Context context("Terminal.Window");
 
     m_copy = new QAction("Copy", this);
-    Core::ActionManager::registerAction(m_copy, "Terminal.Copy", context)->setDefaultKeySequence(QKeySequence::Copy);
+    Core::ActionManager::registerAction(m_copy, "Terminal.Copy", context)->setDefaultKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_C);
     connect(m_copy, &QAction::triggered, this, &TerminalContainer::copyInvoked);
 
     m_paste = new QAction("Paste", this);
-    Core::ActionManager::registerAction(m_paste, "Terminal.Paste", context)->setDefaultKeySequence(QKeySequence::Paste);
+    Core::ActionManager::registerAction(m_paste, "Terminal.Paste", context)->setDefaultKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_V);
     connect(m_paste, &QAction::triggered, this, &TerminalContainer::pasteInvoked);
 
+    // The equivalent of this can be "invoked" with EOF (Ctrl+D) in the controlled terminal
     m_close = new QAction("Close", this);
-    Core::ActionManager::registerAction(m_close, "Terminal.Close", context)->setDefaultKeySequence(QKeySequence::Close);
+    Core::ActionManager::registerAction(m_close, "Terminal.Close", context);
     connect(m_close, &QAction::triggered, this, &TerminalContainer::closeInvoked);
 
     initializeTerm();
