@@ -8,8 +8,9 @@
 #include <coreplugin/outputwindow.h>
 #include <coreplugin/ioutputpane.h>
 
-QT_FORWARD_DECLARE_CLASS(QLabel)
-QT_FORWARD_DECLARE_CLASS(QVBoxLayout)
+QT_FORWARD_DECLARE_CLASS(QLabel);
+QT_FORWARD_DECLARE_CLASS(QSettings);
+QT_FORWARD_DECLARE_CLASS(QVBoxLayout);
 QT_FORWARD_DECLARE_CLASS(QTermWidget);
 QT_FORWARD_DECLARE_CLASS(QToolButton);
 
@@ -44,6 +45,8 @@ private:
     QAction *m_paste;
     QAction *m_close;
     QWidget *m_parent;
+	QString currentColorScheme; // FIXME: change to m_, also switch to QSettings for persistence and config
+								//        also font settings.
 };
 
 class TerminalWindow : public Core::IOutputPane
