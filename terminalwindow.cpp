@@ -23,6 +23,7 @@
 #include <QMenu>
 #include <QToolButton>
 #include <QVBoxLayout>
+#include <QVector>
 
 #include <qtermwidget5/qtermwidget.h>
 #include "findsupport.h"
@@ -34,6 +35,9 @@ TerminalContainer::TerminalContainer(QWidget *parent)
     : QWidget(parent)
     , m_parent(parent)
 {
+	QCoreApplication::setOrganizationName("TermPlugin");
+	QCoreApplication::setOrganizationDomain("TermPlugin");
+
     setContextMenuPolicy(Qt::CustomContextMenu);
     connect(this, &QWidget::customContextMenuRequested,
             this, &TerminalContainer::contextMenuRequested);
@@ -65,19 +69,31 @@ void TerminalContainer::initializeTerm(const QString & workingDirectory)
 
     m_termWidget = new QTermWidget(0, this);
     m_termWidget->setWindowTitle(tr("Terminal"));
-    m_termWidget->setWindowIcon(QIcon());
-    m_termWidget->setScrollBarPosition(QTermWidget::ScrollBarRight);
-    qDebug() << m_termWidget->availableColorSchemes();
-#if defined(Q_OS_LINUX)
-    m_termWidget->setColorScheme("Linux");
-    m_termWidget->setKeyBindings("linux");
-#elif defined(Q_OS_MACX)
-    m_termWidget->setColorScheme("WhiteOnBlack");
-    m_termWidget->setKeyBindings("macbook");
-#else
-    m_termWidget->setColorScheme("BlackOnLightYellow");
-    m_termWidget->setKeyBindings("default");
-#endif
+	m_termWidget->setWindowIcon(QIcon());
+	m_termWidget->setScrollBarPosition(QTermWidget::ScrollBarRight);
+
+	// Try to get the saved color scheme. If it doesn't exist, set the default and
+	// update the saved scheme. If it does exist, use that to set the terminal's scheme.
+	QSettings settings;
+	QString savedColorScheme = settings.value("colorScheme").toString();
+	if(savedColorScheme.isEmpty()) {
+		#if defined(Q_OS_LINUX)
+			currentColorScheme = "DarkPastels";
+			m_termWidget->setKeyBindings("linux");
+		#elif defined(Q_OS_MACX)
+			currentColorScheme = "WhiteOnBlack";
+			m_termWidget->setKeyBindings("macbook");
+		#else
+			currentColorScheme = "BlackOnLightYellow";
+			m_termWidget->setKeyBindings("default");
+		#endif
+		settings.setValue("colorScheme", currentColorScheme);
+	}
+	else {
+		currentColorScheme = savedColorScheme;
+	}
+	m_termWidget->setColorScheme(currentColorScheme);
+
     QFont font = TextEditor::TextEditorSettings::instance()->fontSettings().font();
     m_termWidget->setTerminalFont(font);
     m_termWidget->setTerminalOpacity(1.0);
@@ -109,10 +125,41 @@ void TerminalContainer::contextMenuRequested(const QPoint &point)
 {
     QPoint globalPos = mapToGlobal(point);
     QMenu menu;
+	QMenu themesSubMenu("Color Schemes");
+	QVector<QAction*> actions;
+
     menu.addAction(m_copy);
     menu.addAction(m_paste);
-    menu.addAction(m_close);
+
+	// Get all available color schemes and create a dynamic list of actions corresponding
+	// to each. Add to submenu. Connect a lambda function to it that will set the theme
+	// when the submenu item is chosen.
+	if(m_termWidget) {
+		for(QString scheme : m_termWidget->availableColorSchemes()) {
+			actions.push_back(new QAction(scheme, this));
+			if(scheme == currentColorScheme) {
+				QFont font = actions.back()->font();
+				font.setBold(true);
+				font.setItalic(true);
+				actions.back()->setFont(font);
+			}
+			connect(actions.back(), &QAction::triggered, this, [=]{
+				currentColorScheme = scheme;
+				m_termWidget->setColorScheme(currentColorScheme);
+				QSettings settings;
+				settings.setValue("colorScheme", currentColorScheme);
+			});
+			themesSubMenu.addAction(actions.back());
+		}
+	}
+
+	menu.addMenu(&themesSubMenu);
+	menu.addAction(m_close);
     menu.exec(globalPos);
+
+	for(QAction* action : actions) {
+		delete action;
+	}
 }
 
 void TerminalContainer::copyInvoked()
