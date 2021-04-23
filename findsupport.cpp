@@ -25,13 +25,6 @@ void FindSupport::setTerminal(QTermWidget * termWidget)
     m_matchCaseAction = options[0];
     m_regexpAction = options[1];
     m_highlightAllAction = options[2];
-
-    connect(m_textEdit->parentWidget(), SIGNAL(noMatchFound()), this, SLOT(noMatchFound()));
-}
-
-void FindSupport::noMatchFound()
-{
-    m_result = NotFound;
 }
 
 bool FindSupport::supportsReplace() const

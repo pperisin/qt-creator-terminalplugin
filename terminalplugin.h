@@ -16,8 +16,7 @@ class TerminalWindow;
 
 class TerminalPlugin : public ExtensionSystem::IPlugin {
     Q_OBJECT
-    Q_PLUGIN_METADATA(IID "org.qt-project.Qt.QtCreatorPlugin" FILE
-                          "terminal.json")
+    Q_PLUGIN_METADATA(IID "org.qt-project.Qt.QtCreatorPlugin" FILE "TerminalPlugin.json")
 
 public:
     TerminalPlugin();

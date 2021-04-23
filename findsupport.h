@@ -36,9 +36,6 @@ public:
 public slots:
     void setTerminal(QTermWidget * termWidget);
 
-private slots:
-    void noMatchFound();
-
 private:
     void setupSearch(const QString &txt, Core::FindFlags findFlags);
 

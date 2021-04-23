@@ -13,6 +13,7 @@ QT_FORWARD_DECLARE_CLASS(QSettings);
 QT_FORWARD_DECLARE_CLASS(QVBoxLayout);
 QT_FORWARD_DECLARE_CLASS(QTermWidget);
 QT_FORWARD_DECLARE_CLASS(QToolButton);
+QT_FORWARD_DECLARE_CLASS(QTabWidget);
 
 namespace Terminal {
 namespace Internal {
@@ -23,9 +24,15 @@ class TerminalContainer : public QWidget
 
 public:
     TerminalContainer(QWidget *parent);
-    void initializeTerm(const QString & workingDirectory = QString());
+    QTermWidget *initializeTerm(const QString & workingDirectory = QString());
 
-    QTermWidget *termWidget() const { return m_termWidget; }
+    QTermWidget *termWidget();
+    QString currentDocumentPath() const;
+    void closeAllTabs();
+    void createTab();
+    void nextTab();
+    void prevTab();
+    void closeCurrentTab();
 
 signals:
     void termWidgetChanged(QTermWidget * termWdiget);
@@ -37,16 +44,22 @@ private slots:
     void copyInvoked();
     void pasteInvoked();
     void closeInvoked();
+    void closeTab(int tabIndex);
+    void currentTabChanged(int tabIndex);
+    void renameTab();
+    void renameTabId(int index);
+    void tabBarDoubleClick(int index);
 
 private:
     QVBoxLayout *m_layout;
-    QTermWidget *m_termWidget;
+    QTabWidget  *m_tabWidget;
     QAction *m_copy;
     QAction *m_paste;
     QAction *m_close;
+    QAction *m_newTab;
+    QAction *m_renameTab;
     QWidget *m_parent;
-	QString currentColorScheme; // FIXME: change to m_, also switch to QSettings for persistence and config
-								//        also font settings.
+    QString m_currentColorScheme;
 };
 
 class TerminalWindow : public Core::IOutputPane
@@ -75,12 +88,15 @@ public:
 private slots:
     void terminalFinished();
     void sync();
+    void newTab();
+    void closeTab();
 
 private:
-    QString currentDocumentPath() const;
     Core::IContext *m_context;
     TerminalContainer *m_terminalContainer;
     QToolButton *m_sync;
+    QToolButton *m_addTab;
+    QToolButton *m_closeTab;
 };
 
 } // namespace Internal
