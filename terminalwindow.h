@@ -46,9 +46,11 @@ private slots:
     void closeInvoked();
     void closeTab(int tabIndex);
     void currentTabChanged(int tabIndex);
-    void renameTab();
+    void renameCurrentTab();
     void renameTabId(int index);
     void tabBarDoubleClick(int index);
+    void moveTabLeft();
+    void moveTabRight();
 
 private:
     QVBoxLayout *m_layout;
