@@ -58,6 +58,7 @@ private:
     QAction *m_copy;
     QAction *m_paste;
     QAction *m_close;
+    QAction *m_closeAll;
     QAction *m_newTab;
     QAction *m_renameTab;
     QWidget *m_parent;

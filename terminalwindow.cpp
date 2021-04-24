@@ -59,15 +59,19 @@ TerminalContainer::TerminalContainer(QWidget *parent)
     Core::ActionManager::registerAction(m_paste, "Terminal.Paste", context);
     connect(m_paste, &QAction::triggered, this, &TerminalContainer::pasteInvoked);
 
-    m_close = new QAction("Close", this);
+    m_close = new QAction("Close Tab", this);
     Core::ActionManager::registerAction(m_close, "Terminal.Close", context);
     connect(m_close, &QAction::triggered, this, &TerminalContainer::closeInvoked);
+
+    m_closeAll = new QAction("Close All Tabs", this);
+    Core::ActionManager::registerAction(m_closeAll, "Terminal.CloseAll", context);
+    connect(m_closeAll, &QAction::triggered, this, &TerminalContainer::closeAllTabs);
 
     m_newTab = new QAction("New Tab", this);
     Core::ActionManager::registerAction(m_newTab, "Terminal.NewTab", context);
     connect(m_newTab, &QAction::triggered, this, &TerminalContainer::createTab);
 
-    m_renameTab = new QAction("Rename Current Tab", this);
+    m_renameTab = new QAction("Rename Tab", this);
     Core::ActionManager::registerAction(m_renameTab, "Terminal.RenameTab", context);
     connect(m_renameTab, &QAction::triggered, this, &TerminalContainer::renameCurrentTab);
 
@@ -91,6 +95,60 @@ TerminalContainer::TerminalContainer(QWidget *parent)
     m_layout->setSpacing(0);
     m_layout->addWidget(m_tabWidget);
     setLayout(m_layout);
+
+    QAction *copy = new QAction(this);
+    addAction(copy);
+    copy->setShortcut(QKeySequence(tr("Ctrl+C")));
+    copy->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(copy, &QAction::triggered, this, &TerminalContainer::copyInvoked);
+
+    QAction *paste = new QAction(this);
+    addAction(paste);
+    paste->setShortcut(QKeySequence(tr("Ctrl+V")));
+    paste->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(paste, &QAction::triggered, this, &TerminalContainer::pasteInvoked);
+
+    QAction *close = new QAction(this);
+    addAction(close);
+    close->setShortcut(QKeySequence(tr("Ctrl+D")));
+    close->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(close, &QAction::triggered, this, &TerminalContainer::closeInvoked);
+
+    QAction *newTab = new QAction(this);
+    addAction(newTab);
+    newTab->setShortcut(QKeySequence(tr("Ctrl+Shift+T")));
+    newTab->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(newTab, &QAction::triggered, this, &TerminalContainer::createTab);
+
+    QAction *renameTab = new QAction(this);
+    addAction(renameTab);
+    renameTab->setShortcut(QKeySequence(tr("F2")));
+    renameTab->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(renameTab, &QAction::triggered, this, &TerminalContainer::renameCurrentTab);
+
+    QAction *nextTab = new QAction(this);
+    addAction(nextTab);
+    nextTab->setShortcut(QKeySequence(tr("Ctrl+PgDown")));
+    nextTab->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(nextTab, &QAction::triggered, this, &TerminalContainer::nextTab);
+
+    QAction *prevTab = new QAction(this);
+    addAction(prevTab);
+    prevTab->setShortcut(QKeySequence(tr("Ctrl+PgUp")));
+    prevTab->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(prevTab, &QAction::triggered, this, &TerminalContainer::prevTab);
+
+    QAction *moveTabRight = new QAction(this);
+    addAction(moveTabRight);
+    moveTabRight->setShortcut(QKeySequence(tr("Ctrl+Shift+PgDown")));
+    moveTabRight->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(moveTabRight, &QAction::triggered, this, &TerminalContainer::moveTabRight);
+
+    QAction *moveTabLeft = new QAction(this);
+    addAction(moveTabLeft);
+    moveTabLeft->setShortcut(QKeySequence(tr("Ctrl+Shift+PgUp")));
+    moveTabLeft->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(moveTabLeft, &QAction::triggered, this, &TerminalContainer::moveTabLeft);
 }
 
 QTermWidget* TerminalContainer::initializeTerm(const QString & workingDirectory)
@@ -141,51 +199,6 @@ QTermWidget* TerminalContainer::initializeTerm(const QString & workingDirectory)
     termWidget->startShellProgram();
     termWidget->setBlinkingCursor(true);
 
-    QAction *copy = new QAction(termWidget);
-    termWidget->addAction(copy);
-    copy->setShortcut(QKeySequence(tr("Ctrl+C")));
-    connect(copy, &QAction::triggered, this, &TerminalContainer::copyInvoked);
-
-    QAction *paste = new QAction(termWidget);
-    termWidget->addAction(paste);
-    paste->setShortcut(QKeySequence(tr("Ctrl+V")));
-    connect(paste, &QAction::triggered, this, &TerminalContainer::pasteInvoked);
-
-    QAction *close = new QAction(termWidget);
-    termWidget->addAction(close);
-    close->setShortcut(QKeySequence(tr("Ctrl+D")));
-    connect(close, &QAction::triggered, this, &TerminalContainer::closeInvoked);
-
-    QAction *newTab = new QAction(termWidget);
-    termWidget->addAction(newTab);
-    newTab->setShortcut(QKeySequence(tr("Ctrl+T")));
-    connect(newTab, &QAction::triggered, this, &TerminalContainer::createTab);
-
-    QAction *renameTab = new QAction(termWidget);
-    termWidget->addAction(renameTab);
-    renameTab->setShortcut(QKeySequence(tr("F2")));
-    connect(renameTab, &QAction::triggered, this, &TerminalContainer::renameCurrentTab);
-
-    QAction *nextTab = new QAction(termWidget);
-    termWidget->addAction(nextTab);
-    nextTab->setShortcut(QKeySequence(tr("Ctrl+PgDown")));
-    connect(nextTab, &QAction::triggered, this, &TerminalContainer::nextTab);
-
-    QAction *prevTab = new QAction(termWidget);
-    termWidget->addAction(prevTab);
-    prevTab->setShortcut(QKeySequence(tr("Ctrl+PgUp")));
-    connect(prevTab, &QAction::triggered, this, &TerminalContainer::prevTab);
-
-    QAction *moveTabRight = new QAction(termWidget);
-    termWidget->addAction(moveTabRight);
-    moveTabRight->setShortcut(QKeySequence(tr("Ctrl+Shift+PgDown")));
-    connect(moveTabRight, &QAction::triggered, this, &TerminalContainer::moveTabRight);
-
-    QAction *moveTabLeft = new QAction(termWidget);
-    termWidget->addAction(moveTabLeft);
-    moveTabLeft->setShortcut(QKeySequence(tr("Ctrl+Shift+PgUp")));
-    connect(moveTabLeft, &QAction::triggered, this, &TerminalContainer::moveTabLeft);
-
     return termWidget;
 }
 
@@ -235,8 +248,6 @@ void TerminalContainer::contextMenuRequested(const QPoint &point)
     QMenu themesSubMenu("Color Schemes");
     QVector<QAction*> actions;
 
-    menu.addAction(m_newTab);
-    menu.addAction(m_renameTab);
     menu.addAction(m_copy);
     menu.addAction(m_paste);
 
@@ -268,8 +279,13 @@ void TerminalContainer::contextMenuRequested(const QPoint &point)
         }
     }
 
+    menu.addSeparator();
     menu.addMenu(&themesSubMenu);
+    menu.addSeparator();
+    menu.addAction(m_newTab);
+    menu.addAction(m_renameTab);
     menu.addAction(m_close);
+    menu.addAction(m_closeAll);
     menu.exec(globalPos);
 
     for(QAction* action : actions) {
@@ -322,7 +338,23 @@ void TerminalContainer::renameTabId(int index)
     connect(lineEdit, &QLineEdit::editingFinished,
             this, [this, lineEdit, index]() {
         this->m_tabWidget->setTabText(index, lineEdit->text());
+
+        if (lineEdit->hasFocus())
+            this->m_tabWidget->currentWidget()->setFocus();
+
         lineEdit->deleteLater();
+    });
+
+    connect(lineEdit, &QLineEdit::textEdited,
+            this, [lineEdit](const QString &text) {
+
+        QFontMetrics fm(lineEdit->font());
+        // not sure how to get platform specific pixel difference between
+        // QLineEdit edge and text inside it, so use fixed 10 pixels for now
+        int pixelsWide = fm.horizontalAdvance(text) + 10;
+
+        if (lineEdit->size().width() < pixelsWide)
+            lineEdit->setFixedSize(pixelsWide, lineEdit->height());
     });
 
     lineEdit->selectAll();
