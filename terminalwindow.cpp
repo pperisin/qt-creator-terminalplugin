@@ -198,6 +198,7 @@ QTermWidget* TerminalContainer::initializeTerm(const QString & workingDirectory)
     termWidget->setEnvironment(env.toStringList());
     termWidget->startShellProgram();
     termWidget->setBlinkingCursor(true);
+//  termWidget->setConfirmMultilinePaste(false);
 
     return termWidget;
 }
