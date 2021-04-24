@@ -36,15 +36,13 @@
 namespace Terminal {
 namespace Internal {
 
-TerminalContainer::TerminalContainer(QWidget *parent)
+TerminalContainer::TerminalContainer(QWidget *parent, const QString &colorScheme)
     : QWidget(parent)
     , m_layout(nullptr)
     , m_tabWidget(nullptr)
     , m_parent(parent)
+    , m_currentColorScheme(colorScheme)
 {
-    QCoreApplication::setOrganizationName("TermPlugin");
-    QCoreApplication::setOrganizationDomain("TermPlugin");
-
     setContextMenuPolicy(Qt::CustomContextMenu);
     connect(this, &QWidget::customContextMenuRequested,
             this, &TerminalContainer::contextMenuRequested);
@@ -58,10 +56,6 @@ TerminalContainer::TerminalContainer(QWidget *parent)
     m_paste = new QAction("Paste", this);
     Core::ActionManager::registerAction(m_paste, "Terminal.Paste", context);
     connect(m_paste, &QAction::triggered, this, &TerminalContainer::pasteInvoked);
-
-    m_close = new QAction("Close Tab", this);
-    Core::ActionManager::registerAction(m_close, "Terminal.Close", context);
-    connect(m_close, &QAction::triggered, this, &TerminalContainer::closeInvoked);
 
     m_closeAll = new QAction("Close All Tabs", this);
     Core::ActionManager::registerAction(m_closeAll, "Terminal.CloseAll", context);
@@ -158,26 +152,6 @@ QTermWidget* TerminalContainer::initializeTerm(const QString & workingDirectory)
     termWidget->setWindowIcon(QIcon());
     termWidget->setScrollBarPosition(QTermWidget::ScrollBarRight);
 
-    // Try to get the saved color scheme. If it doesn't exist, set the default and
-    // update the saved scheme. If it does exist, use that to set the terminal's scheme.
-    QSettings settings;
-    QString savedColorScheme = settings.value("colorScheme").toString();
-    if(savedColorScheme.isEmpty()) {
-#if defined(Q_OS_LINUX)
-        m_currentColorScheme = "DarkPastels";
-        termWidget->setKeyBindings("linux");
-#elif defined(Q_OS_MACX)
-        currentColorScheme = "WhiteOnBlack";
-        termWidget->setKeyBindings("macbook");
-#else
-        currentColorScheme = "BlackOnLightYellow";
-        termWidget->setKeyBindings("default");
-#endif
-        settings.setValue("colorScheme", m_currentColorScheme);
-    }
-    else {
-        m_currentColorScheme = savedColorScheme;
-    }
     termWidget->setColorScheme(m_currentColorScheme);
 
     QFont font = TextEditor::TextEditorSettings::instance()->fontSettings().font();
@@ -232,6 +206,9 @@ void TerminalContainer::closeTab(int tabIndex)
 
     if (m_tabWidget->count() == 0)
         createTab();
+
+    m_tabWidget->setFocus();
+    m_tabWidget->currentWidget()->setFocus();
 }
 
 void TerminalContainer::currentTabChanged(int tabIndex)
@@ -246,52 +223,13 @@ void TerminalContainer::contextMenuRequested(const QPoint &point)
 {
     QPoint globalPos = mapToGlobal(point);
     QMenu menu;
-    QMenu themesSubMenu("Color Schemes");
-    QVector<QAction*> actions;
-
     menu.addAction(m_copy);
     menu.addAction(m_paste);
-
-    // Get all available color schemes and create a dynamic list of actions corresponding
-    // to each. Add to submenu. Connect a lambda function to it that will set the theme
-    // when the submenu item is chosen.
-    QTermWidget *terminal = termWidget();
-    if(terminal) {
-        for(QString &scheme : terminal->availableColorSchemes()) {
-            actions.push_back(new QAction(scheme, this));
-            if(scheme == m_currentColorScheme) {
-                QFont font = actions.back()->font();
-                font.setBold(true);
-                font.setItalic(true);
-                actions.back()->setFont(font);
-            }
-            connect(actions.back(), &QAction::triggered, this, [=]{
-                m_currentColorScheme = scheme;
-                for (int i = 0; i < m_tabWidget->count(); i++) {
-                    QTermWidget *widget =  static_cast<QTermWidget *>(m_tabWidget->widget(i));
-                    if (widget)
-                        widget->setColorScheme(m_currentColorScheme);
-                }
-
-                QSettings settings;
-                settings.setValue("colorScheme", m_currentColorScheme);
-            });
-            themesSubMenu.addAction(actions.back());
-        }
-    }
-
-    menu.addSeparator();
-    menu.addMenu(&themesSubMenu);
     menu.addSeparator();
     menu.addAction(m_newTab);
     menu.addAction(m_renameTab);
-    menu.addAction(m_close);
     menu.addAction(m_closeAll);
     menu.exec(globalPos);
-
-    for(QAction* action : actions) {
-        delete action;
-    }
 }
 
 void TerminalContainer::copyInvoked()
@@ -348,8 +286,8 @@ void TerminalContainer::renameTabId(int index)
 
     connect(lineEdit, &QLineEdit::textEdited,
             this, [lineEdit](const QString &text) {
-
         QFontMetrics fm(lineEdit->font());
+
         // not sure how to get platform specific pixel difference between
         // QLineEdit edge and text inside it, so use fixed 10 pixels for now
         int pixelsWide = fm.horizontalAdvance(text) + 10;
@@ -377,6 +315,7 @@ void TerminalContainer::createTab()
     }
     int index = m_tabWidget->addTab(initializeTerm(path), "terminal");
     m_tabWidget->setCurrentIndex(index);
+    m_tabWidget->currentWidget()->setFocus();
 
     emit termWidgetChanged(termWidget());
 }
@@ -392,6 +331,7 @@ void TerminalContainer::nextTab()
         nextIndex = 0;
 
     m_tabWidget->setCurrentIndex(nextIndex);
+    m_tabWidget->currentWidget()->setFocus();
 
     emit termWidgetChanged(termWidget());
 }
@@ -407,6 +347,7 @@ void TerminalContainer::prevTab()
         prevIndex = m_tabWidget->count() - 1;
 
     m_tabWidget->setCurrentIndex(prevIndex);
+    m_tabWidget->currentWidget()->setFocus();
 
     emit termWidgetChanged(termWidget());
 }
@@ -420,8 +361,8 @@ void TerminalContainer::moveTabLeft()
     int nextIndex = currentIndex ? currentIndex - 1 : m_tabWidget->count() - 1;
 
     m_tabWidget->tabBar()->moveTab(currentIndex, nextIndex);
-
     m_tabWidget->setCurrentIndex(nextIndex);
+    m_tabWidget->currentWidget()->setFocus();
 }
 
 void TerminalContainer::moveTabRight()
@@ -433,8 +374,18 @@ void TerminalContainer::moveTabRight()
     int nextIndex = (currentIndex + 1 == m_tabWidget->count()) ? 0 : currentIndex + 1;
 
     m_tabWidget->tabBar()->moveTab(currentIndex, nextIndex);
-
     m_tabWidget->setCurrentIndex(nextIndex);
+    m_tabWidget->currentWidget()->setFocus();
+}
+
+void TerminalContainer::setColorScheme(const QString &scheme)
+{
+    m_currentColorScheme = scheme;
+    for (int i = 0; i < m_tabWidget->count(); i++) {
+        QTermWidget *widget =  static_cast<QTermWidget *>(m_tabWidget->widget(i));
+        if (widget)
+            widget->setColorScheme(m_currentColorScheme);
+    }
 }
 
 QString TerminalContainer::currentDocumentPath() const
@@ -462,6 +413,9 @@ TerminalWindow::TerminalWindow(QObject *parent)
     , m_context(new Core::IContext(this))
     , m_terminalContainer(nullptr)
 {
+    QCoreApplication::setOrganizationName("TermPlugin");
+    QCoreApplication::setOrganizationDomain("TermPlugin");
+
     Core::Context context("Terminal.Window");
     m_context->setContext(context);
 
@@ -480,18 +434,39 @@ TerminalWindow::TerminalWindow(QObject *parent)
 
     connect(m_addTab, &QAbstractButton::clicked, this, &TerminalWindow::newTab);
 
-    m_closeTab = new QToolButton();
-    m_closeTab->setIcon(Utils::Icons::CLOSE_TOOLBAR.icon());
-    m_closeTab->setEnabled(true);
-    m_closeTab->setToolTip(tr("Close Current Terminal"));
+    m_colorScheme = new QToolButton();
+    m_colorScheme->setIcon(Utils::Icons::SETTINGS_TOOLBAR.icon());
+    m_colorScheme->setEnabled(true);
+    m_colorScheme->setToolTip(tr("Color Scheme"));
 
-    connect(m_closeTab, &QAbstractButton::clicked, this, &TerminalWindow::closeTab);
+    m_colorScheme->setMenu(new QMenu(m_colorScheme));
+    m_colorScheme->setPopupMode(QToolButton::InstantPopup);
+
+    connect(m_colorScheme, &QAbstractButton::pressed, this, &TerminalWindow::colorScheme);
+
+    // Try to get the saved color scheme. If it doesn't exist, set the default and
+    // update the saved scheme. If it does exist, use that to set the terminal's scheme.
+    QSettings settings;
+    QString file = settings.fileName();
+    QString savedColorScheme = settings.value("colorScheme").toString();
+    if (savedColorScheme.isEmpty()) {
+#if defined(Q_OS_LINUX)
+        m_currentColorScheme = "DarkPastels";
+#elif defined(Q_OS_MACX)
+        m_currentColorScheme = "WhiteOnBlack";
+#else
+        m_currentColorScheme = "BlackOnLightYellow";
+#endif
+        settings.setValue("colorScheme", m_currentColorScheme);
+    } else {
+        m_currentColorScheme = savedColorScheme;
+    }
 }
 
 QWidget *TerminalWindow::outputWidget(QWidget *parent)
 {
     if (!m_terminalContainer) {
-        m_terminalContainer = new TerminalContainer(parent);
+        m_terminalContainer = new TerminalContainer(parent, m_currentColorScheme);
         connect(m_terminalContainer, &TerminalContainer::finished,
                 this, &TerminalWindow::terminalFinished);
 
@@ -505,13 +480,15 @@ QWidget *TerminalWindow::outputWidget(QWidget *parent)
         Aggregation::Aggregate *agg = new Aggregation::Aggregate;
         agg->add(m_terminalContainer);
         agg->add(findSupport);
+
+        colorScheme();
     }
     return m_terminalContainer;
 }
 
 QList<QWidget *> TerminalWindow::toolBarWidgets() const
 {
-    return { m_sync, m_addTab, m_closeTab };
+    return { m_sync, m_addTab, m_colorScheme };
 }
 
 QString TerminalWindow::displayName() const
@@ -547,19 +524,33 @@ void TerminalWindow::newTab()
         m_terminalContainer->createTab();
 }
 
-void TerminalWindow::closeTab()
+void TerminalWindow::colorScheme()
 {
-    if (m_terminalContainer)
-        m_terminalContainer->closeCurrentTab();
-}
-
-void TerminalWindow::visibilityChanged(bool visible)
-{
-    static bool initialized = false;
-    if (!m_terminalContainer || !m_terminalContainer->termWidget() || initialized || !visible)
+    if (!m_terminalContainer || !m_terminalContainer->termWidget())
         return;
 
-    initialized = true;
+    m_colorScheme->menu()->clear();
+    QTermWidget *terminal = m_terminalContainer->termWidget();
+    QStringList schemes = terminal->availableColorSchemes();
+    schemes.sort();
+    for(QString &scheme : schemes) {
+        QAction *action = new QAction(scheme,  m_colorScheme->menu());
+        if(scheme == m_currentColorScheme) {
+            QFont font = action->font();
+            font.setBold(true);
+            font.setItalic(true);
+            action->setFont(font);
+        }
+        connect(action, &QAction::triggered, this, [=] {
+            this->m_currentColorScheme = scheme;
+            this->m_terminalContainer->setColorScheme(scheme);
+            QSettings settings;
+            QString file = settings.fileName();
+            settings.setValue("colorScheme", this->m_currentColorScheme);
+            this->m_colorScheme->menu()->clear();
+        });
+        m_colorScheme->menu()->addAction(action);
+    }
 }
 
 void TerminalWindow::terminalFinished()

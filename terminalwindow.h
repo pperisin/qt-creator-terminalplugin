@@ -23,8 +23,8 @@ class TerminalContainer : public QWidget
     Q_OBJECT
 
 public:
-    TerminalContainer(QWidget *parent);
-    QTermWidget *initializeTerm(const QString & workingDirectory = QString());
+    TerminalContainer(QWidget *parent, const QString &colorScheme);
+    QTermWidget *initializeTerm(const QString &workingDirectory = QString());
 
     QTermWidget *termWidget();
     QString currentDocumentPath() const;
@@ -33,6 +33,7 @@ public:
     void nextTab();
     void prevTab();
     void closeCurrentTab();
+    void setColorScheme(const QString &scheme);
 
 signals:
     void termWidgetChanged(QTermWidget * termWdiget);
@@ -57,7 +58,6 @@ private:
     QTabWidget  *m_tabWidget;
     QAction *m_copy;
     QAction *m_paste;
-    QAction *m_close;
     QAction *m_closeAll;
     QAction *m_newTab;
     QAction *m_renameTab;
@@ -70,36 +70,36 @@ class TerminalWindow : public Core::IOutputPane
     Q_OBJECT
 
 public:
-    TerminalWindow(QObject *parent = 0);
+    TerminalWindow(QObject *parent = nullptr);
 
     // Pure virtual in IOutputPane
-    virtual QWidget *outputWidget(QWidget *parent);
-    virtual QList<QWidget *> toolBarWidgets() const;
-    virtual QString displayName() const;
-    virtual int priorityInStatusBar() const;
-    virtual void clearContents();
-    virtual void visibilityChanged(bool visible);
-    virtual void setFocus();
-    virtual bool hasFocus() const;
-    virtual bool canFocus() const;
-    virtual bool canNavigate() const;
-    virtual bool canNext() const;
-    virtual bool canPrevious() const;
-    virtual void goToNext();
-    virtual void goToPrev();
+    virtual QWidget *outputWidget(QWidget *parent) override;
+    virtual QList<QWidget *> toolBarWidgets() const override;
+    virtual QString displayName() const override;
+    virtual int priorityInStatusBar() const override;
+    virtual void clearContents() override;
+    virtual void setFocus() override;
+    virtual bool hasFocus() const override;
+    virtual bool canFocus() const override;
+    virtual bool canNavigate() const override;
+    virtual bool canNext() const override;
+    virtual bool canPrevious() const override;
+    virtual void goToNext() override;
+    virtual void goToPrev() override;
 
 private slots:
     void terminalFinished();
     void sync();
     void newTab();
-    void closeTab();
+    void colorScheme();
 
 private:
     Core::IContext *m_context;
     TerminalContainer *m_terminalContainer;
     QToolButton *m_sync;
     QToolButton *m_addTab;
-    QToolButton *m_closeTab;
+    QToolButton *m_colorScheme;
+    QString m_currentColorScheme;
 };
 
 } // namespace Internal
