@@ -36,38 +36,34 @@
 namespace Terminal {
 namespace Internal {
 
-TerminalContainer::TerminalContainer(QWidget *parent, const QString &colorScheme)
+TerminalContainer::TerminalContainer(QWidget *parent)
     : QWidget(parent)
     , m_layout(nullptr)
     , m_tabWidget(nullptr)
-    , m_parent(parent)
-    , m_currentColorScheme(colorScheme)
 {
+    QCoreApplication::setOrganizationName("TermPlugin");
+    QCoreApplication::setOrganizationDomain("TermPlugin");
+
+    // Try to get the saved color scheme. If it doesn't exist, set the default and
+    // update the saved scheme. If it does exist, use that to set the terminal's scheme.
+    QSettings settings;
+    QString savedColorScheme = settings.value("colorScheme").toString();
+    if (savedColorScheme.isEmpty()) {
+#if defined(Q_OS_LINUX)
+        m_currentColorScheme = "DarkPastels";
+#elif defined(Q_OS_MACX)
+        m_currentColorScheme = "WhiteOnBlack";
+#else
+        m_currentColorScheme = "BlackOnLightYellow";
+#endif
+        settings.setValue("colorScheme", m_currentColorScheme);
+    } else {
+        m_currentColorScheme = savedColorScheme;
+    }
+
     setContextMenuPolicy(Qt::CustomContextMenu);
     connect(this, &QWidget::customContextMenuRequested,
             this, &TerminalContainer::contextMenuRequested);
-
-    Core::Context context("Terminal.Window");
-
-    m_copy = new QAction("Copy", this);
-    Core::ActionManager::registerAction(m_copy, "Terminal.Copy", context);
-    connect(m_copy, &QAction::triggered, this, &TerminalContainer::copyInvoked);
-
-    m_paste = new QAction("Paste", this);
-    Core::ActionManager::registerAction(m_paste, "Terminal.Paste", context);
-    connect(m_paste, &QAction::triggered, this, &TerminalContainer::pasteInvoked);
-
-    m_closeAll = new QAction("Close All Tabs", this);
-    Core::ActionManager::registerAction(m_closeAll, "Terminal.CloseAll", context);
-    connect(m_closeAll, &QAction::triggered, this, &TerminalContainer::closeAllTabs);
-
-    m_newTab = new QAction("New Tab", this);
-    Core::ActionManager::registerAction(m_newTab, "Terminal.NewTab", context);
-    connect(m_newTab, &QAction::triggered, this, &TerminalContainer::createTab);
-
-    m_renameTab = new QAction("Rename Tab", this);
-    Core::ActionManager::registerAction(m_renameTab, "Terminal.RenameTab", context);
-    connect(m_renameTab, &QAction::triggered, this, &TerminalContainer::renameCurrentTab);
 
     m_tabWidget = new QTabWidget;
     m_tabWidget->addTab(initializeTerm(), "terminal");
@@ -76,7 +72,7 @@ TerminalContainer::TerminalContainer(QWidget *parent, const QString &colorScheme
     m_tabWidget->setMovable(true);
 
     connect(m_tabWidget, &QTabWidget::tabCloseRequested,
-            this, &TerminalContainer::closeTab);
+            this, &TerminalContainer::closeTerminalId);
 
     connect(m_tabWidget, &QTabWidget::currentChanged,
             this, &TerminalContainer::currentTabChanged);
@@ -90,59 +86,75 @@ TerminalContainer::TerminalContainer(QWidget *parent, const QString &colorScheme
     m_layout->addWidget(m_tabWidget);
     setLayout(m_layout);
 
-    QAction *copy = new QAction(this);
-    addAction(copy);
-    copy->setShortcut(QKeySequence(tr("Ctrl+C")));
-    copy->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
-    connect(copy, &QAction::triggered, this, &TerminalContainer::copyInvoked);
+    m_copy = new QAction("Copy", this);
+    addAction(m_copy);
+    m_copy->setShortcut(QKeySequence(tr("Ctrl+C")));
+    m_copy->setShortcutVisibleInContextMenu(true);
+    m_copy->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(m_copy, &QAction::triggered, this, &TerminalContainer::copyInvoked);
 
-    QAction *paste = new QAction(this);
-    addAction(paste);
-    paste->setShortcut(QKeySequence(tr("Ctrl+V")));
-    paste->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
-    connect(paste, &QAction::triggered, this, &TerminalContainer::pasteInvoked);
+    m_paste = new QAction("Paste", this);
+    addAction(m_paste);
+    m_paste->setShortcut(QKeySequence(tr("Ctrl+V")));
+    m_paste->setShortcutVisibleInContextMenu(true);
+    m_paste->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(m_paste, &QAction::triggered, this, &TerminalContainer::pasteInvoked);
 
-    QAction *close = new QAction(this);
-    addAction(close);
-    close->setShortcut(QKeySequence(tr("Ctrl+D")));
-    close->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
-    connect(close, &QAction::triggered, this, &TerminalContainer::closeInvoked);
+    m_newTerminal = new QAction("New Terminal", this);
+    addAction(m_newTerminal);
+    m_newTerminal->setShortcut(QKeySequence(tr("Ctrl+Shift+T")));
+    m_newTerminal->setShortcutVisibleInContextMenu(true);
+    m_newTerminal->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(m_newTerminal, &QAction::triggered, this, &TerminalContainer::createTerminal);
 
-    QAction *newTab = new QAction(this);
-    addAction(newTab);
-    newTab->setShortcut(QKeySequence(tr("Ctrl+Shift+T")));
-    newTab->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
-    connect(newTab, &QAction::triggered, this, &TerminalContainer::createTab);
+    m_closeTerminal = new QAction("Close Terminal", this);
+    addAction(m_closeTerminal);
+    m_closeTerminal->setShortcut(QKeySequence(tr("Ctrl+D")));
+    m_closeTerminal->setShortcutVisibleInContextMenu(true);
+    m_closeTerminal->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(m_closeTerminal, &QAction::triggered, this, &TerminalContainer::closeTerminal);
 
-    QAction *renameTab = new QAction(this);
-    addAction(renameTab);
-    renameTab->setShortcut(QKeySequence(tr("F2")));
-    renameTab->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
-    connect(renameTab, &QAction::triggered, this, &TerminalContainer::renameCurrentTab);
+    m_renameTerminal = new QAction("Rename Terminal", this);
+    addAction(m_renameTerminal);
+    m_renameTerminal->setShortcut(QKeySequence(tr("F2")));
+    m_renameTerminal->setShortcutVisibleInContextMenu(true);
+    m_renameTerminal->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(m_renameTerminal, &QAction::triggered, this, &TerminalContainer::renameCurrentTerminal);
 
-    QAction *nextTab = new QAction(this);
-    addAction(nextTab);
-    nextTab->setShortcut(QKeySequence(tr("Ctrl+PgDown")));
-    nextTab->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
-    connect(nextTab, &QAction::triggered, this, &TerminalContainer::nextTab);
+    m_nextTerminal = new QAction("Next Terminal", this);
+    addAction(m_nextTerminal);
+    m_nextTerminal->setShortcut(QKeySequence(tr("Ctrl+PgDown")));
+    m_nextTerminal->setShortcutVisibleInContextMenu(true);
+    m_nextTerminal->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(m_nextTerminal, &QAction::triggered, this, &TerminalContainer::nextTerminal);
 
-    QAction *prevTab = new QAction(this);
-    addAction(prevTab);
-    prevTab->setShortcut(QKeySequence(tr("Ctrl+PgUp")));
-    prevTab->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
-    connect(prevTab, &QAction::triggered, this, &TerminalContainer::prevTab);
+    m_prevTerminal = new QAction("Previous Terminal", this);
+    addAction(m_prevTerminal);
+    m_prevTerminal->setShortcut(QKeySequence(tr("Ctrl+PgUp")));
+    m_prevTerminal->setShortcutVisibleInContextMenu(true);
+    m_prevTerminal->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(m_prevTerminal, &QAction::triggered, this, &TerminalContainer::prevTerminal);
 
-    QAction *moveTabRight = new QAction(this);
-    addAction(moveTabRight);
-    moveTabRight->setShortcut(QKeySequence(tr("Ctrl+Shift+PgDown")));
-    moveTabRight->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
-    connect(moveTabRight, &QAction::triggered, this, &TerminalContainer::moveTabRight);
+    m_moveTerminalRight = new QAction("Move Terminal Right", this);
+    addAction(m_moveTerminalRight);
+    m_moveTerminalRight->setShortcut(QKeySequence(tr("Ctrl+Shift+PgDown")));
+    m_moveTerminalRight->setShortcutVisibleInContextMenu(true);
+    m_moveTerminalRight->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(m_moveTerminalRight, &QAction::triggered, this, &TerminalContainer::moveTerminalRight);
 
-    QAction *moveTabLeft = new QAction(this);
-    addAction(moveTabLeft);
-    moveTabLeft->setShortcut(QKeySequence(tr("Ctrl+Shift+PgUp")));
-    moveTabLeft->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
-    connect(moveTabLeft, &QAction::triggered, this, &TerminalContainer::moveTabLeft);
+    m_moveTerminalLeft = new QAction("Move Terminal Left", this);
+    addAction(m_moveTerminalLeft);
+    m_moveTerminalLeft->setShortcut(QKeySequence(tr("Ctrl+Shift+PgUp")));
+    m_moveTerminalLeft->setShortcutVisibleInContextMenu(true);
+    m_moveTerminalLeft->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(m_moveTerminalLeft, &QAction::triggered, this, &TerminalContainer::moveTerminalLeft);
+
+    m_closeAllTerminals = new QAction("Close All Terminals", this);
+    addAction(m_closeAllTerminals);
+    m_closeAllTerminals->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(m_closeAllTerminals, &QAction::triggered, this, &TerminalContainer::closeAllTerminals);
+
+    setTabActions();
 }
 
 QTermWidget* TerminalContainer::initializeTerm(const QString & workingDirectory)
@@ -177,7 +189,17 @@ QTermWidget* TerminalContainer::initializeTerm(const QString & workingDirectory)
     return termWidget;
 }
 
-void TerminalContainer::closeAllTabs()
+void TerminalContainer::setTabActions()
+{
+    bool enable = m_tabWidget->count() > 1;
+
+    m_nextTerminal->setEnabled(enable);
+    m_prevTerminal->setEnabled(enable);
+    m_moveTerminalRight->setEnabled(enable);
+    m_moveTerminalLeft->setEnabled(enable);
+}
+
+void TerminalContainer::closeAllTerminals()
 {
     for (int i = m_tabWidget->count(); i > 0; i--)
     {
@@ -185,10 +207,11 @@ void TerminalContainer::closeAllTabs()
         m_tabWidget->removeTab(i-1);
     }
 
-    createTab();
+    createTerminal();
+    setTabActions();
 }
 
-void TerminalContainer::closeCurrentTab()
+void TerminalContainer::closeCurrentTerminal()
 {
     if (m_tabWidget->currentIndex() < 0)
         return;
@@ -196,24 +219,27 @@ void TerminalContainer::closeCurrentTab()
     m_tabWidget->removeTab(m_tabWidget->currentIndex());
 
     if (m_tabWidget->count() == 0)
-        createTab();
+        createTerminal();
+
+    setTabActions();
 }
 
-void TerminalContainer::closeTab(int tabIndex)
+void TerminalContainer::closeTerminalId(int index)
 {
-    m_tabWidget->widget(tabIndex)->deleteLater();
-    m_tabWidget->removeTab(tabIndex);
+    m_tabWidget->widget(index)->deleteLater();
+    m_tabWidget->removeTab(index);
 
     if (m_tabWidget->count() == 0)
-        createTab();
+        createTerminal();
 
     m_tabWidget->setFocus();
     m_tabWidget->currentWidget()->setFocus();
+    setTabActions();
 }
 
-void TerminalContainer::currentTabChanged(int tabIndex)
+void TerminalContainer::currentTabChanged(int index)
 {
-    if (tabIndex <0 || tabIndex >= m_tabWidget->count())
+    if (index <0 || index >= m_tabWidget->count())
         return;
 
     emit termWidgetChanged(termWidget());
@@ -221,15 +247,55 @@ void TerminalContainer::currentTabChanged(int tabIndex)
 
 void TerminalContainer::contextMenuRequested(const QPoint &point)
 {
-    QPoint globalPos = mapToGlobal(point);
     QMenu menu;
-    menu.addAction(m_copy);
-    menu.addAction(m_paste);
-    menu.addSeparator();
-    menu.addAction(m_newTab);
-    menu.addAction(m_renameTab);
-    menu.addAction(m_closeAll);
-    menu.exec(globalPos);
+
+    fillContextMenu(&menu);
+
+    menu.exec(mapToGlobal(point));
+}
+
+void TerminalContainer::fillContextMenu(QMenu *menu)
+{
+    QMenu *colorSchemeMenu = new QMenu("Color Schemes", menu);
+    fillColorSchemeMenu(colorSchemeMenu);
+
+    menu->addAction(m_copy);
+    menu->addAction(m_paste);
+    menu->addSeparator();
+    menu->addMenu(colorSchemeMenu);
+    menu->addSeparator();
+    menu->addAction(m_newTerminal);
+    menu->addAction(m_closeTerminal);
+    menu->addAction(m_renameTerminal);
+    menu->addSeparator();
+    menu->addAction(m_nextTerminal);
+    menu->addAction(m_prevTerminal);
+    menu->addAction(m_moveTerminalRight);
+    menu->addAction(m_moveTerminalLeft);
+    menu->addSeparator();
+    menu->addAction(m_closeAllTerminals);
+}
+
+void TerminalContainer::fillColorSchemeMenu(QMenu *menu)
+{
+    QStringList schemes = termWidget()->availableColorSchemes();
+    schemes.sort();
+    for(QString &scheme : schemes) {
+        QAction *action = new QAction(scheme, menu);
+        if(scheme == m_currentColorScheme) {
+            QFont font = action->font();
+            font.setBold(true);
+            font.setItalic(true);
+            action->setFont(font);
+        }
+        connect(action, &QAction::triggered, this, [=] {
+            m_currentColorScheme = scheme;
+            setColorScheme(scheme);
+            QSettings settings;
+            settings.setValue("colorScheme", m_currentColorScheme);
+        });
+        menu->addAction(action);
+    }
 }
 
 void TerminalContainer::copyInvoked()
@@ -247,25 +313,25 @@ void TerminalContainer::copyAvailable(bool available)
     m_copy->setEnabled(available);
 }
 
-void TerminalContainer::closeInvoked()
+void TerminalContainer::closeTerminal()
 {
-    closeTab(m_tabWidget->currentIndex());
+    closeTerminalId(m_tabWidget->currentIndex());
 }
 
-void TerminalContainer::renameCurrentTab()
+void TerminalContainer::renameCurrentTerminal()
 {
-    renameTabId(m_tabWidget->currentIndex());
+    renameTerminal(m_tabWidget->currentIndex());
 }
 
 void  TerminalContainer::tabBarDoubleClick(int index)
 {
     if (index < 0 || index >= m_tabWidget->count())
-        createTab();
+        createTerminal();
     else
-        renameTabId(index);
+        renameTerminal(index);
 }
 
-void TerminalContainer::renameTabId(int index)
+void TerminalContainer::renameTerminal(int index)
 {
     if (index < 0 || index >= m_tabWidget->count())
         return;
@@ -273,35 +339,39 @@ void TerminalContainer::renameTabId(int index)
     QLineEdit *lineEdit = new QLineEdit(this);
     lineEdit->setGeometry(m_tabWidget->tabBar()->tabRect(index));
     lineEdit->setText(m_tabWidget->tabText(index));
+    lineEdit->selectAll();
+    int lineEditWidth = lineEdit->size().width();
 
-    connect(lineEdit, &QLineEdit::editingFinished,
+    connect(lineEdit, &QLineEdit::returnPressed,
             this, [this, lineEdit, index]() {
         this->m_tabWidget->setTabText(index, lineEdit->text());
+        this->m_tabWidget->currentWidget()->setFocus();
+        lineEdit->deleteLater();
+    });
 
-        if (lineEdit->hasFocus())
-            this->m_tabWidget->currentWidget()->setFocus();
-
+    connect(lineEdit, &QLineEdit::editingFinished,
+            this, [this, lineEdit]() {
+        this->m_tabWidget->currentWidget()->setFocus();
         lineEdit->deleteLater();
     });
 
     connect(lineEdit, &QLineEdit::textEdited,
-            this, [lineEdit](const QString &text) {
+            this, [lineEdit, lineEditWidth](const QString &text) {
         QFontMetrics fm(lineEdit->font());
 
         // not sure how to get platform specific pixel difference between
-        // QLineEdit edge and text inside it, so use fixed 10 pixels for now
-        int pixelsWide = fm.horizontalAdvance(text) + 10;
+        // QLineEdit edge and text inside it, so use fixed 12 pixels for now
+        int pixelsWide = fm.horizontalAdvance(text) + 12;
 
-        if (lineEdit->size().width() < pixelsWide)
+        if (lineEditWidth < pixelsWide)
             lineEdit->setFixedSize(pixelsWide, lineEdit->height());
     });
 
-    lineEdit->selectAll();
     lineEdit->show();
     lineEdit->setFocus();
 }
 
-void TerminalContainer::createTab()
+void TerminalContainer::createTerminal()
 {
     QString path;
     int count = m_tabWidget->count();
@@ -316,11 +386,12 @@ void TerminalContainer::createTab()
     int index = m_tabWidget->addTab(initializeTerm(path), "terminal");
     m_tabWidget->setCurrentIndex(index);
     m_tabWidget->currentWidget()->setFocus();
+    setTabActions();
 
     emit termWidgetChanged(termWidget());
 }
 
-void TerminalContainer::nextTab()
+void TerminalContainer::nextTerminal()
 {
     if (m_tabWidget->count() <= 1)
         return;
@@ -336,7 +407,7 @@ void TerminalContainer::nextTab()
     emit termWidgetChanged(termWidget());
 }
 
-void TerminalContainer::prevTab()
+void TerminalContainer::prevTerminal()
 {
     if (m_tabWidget->count() <= 1)
         return;
@@ -352,7 +423,7 @@ void TerminalContainer::prevTab()
     emit termWidgetChanged(termWidget());
 }
 
-void TerminalContainer::moveTabLeft()
+void TerminalContainer::moveTerminalLeft()
 {
     if (m_tabWidget->currentIndex() < 0)
         return;
@@ -365,7 +436,7 @@ void TerminalContainer::moveTabLeft()
     m_tabWidget->currentWidget()->setFocus();
 }
 
-void TerminalContainer::moveTabRight()
+void TerminalContainer::moveTerminalRight()
 {
     if (m_tabWidget->currentIndex() < 0)
         return;
@@ -401,9 +472,7 @@ QString TerminalContainer::currentDocumentPath() const
 QTermWidget *TerminalContainer::termWidget()
 {
     if (m_tabWidget->count() == 0)
-    {
-        createTab();
-    }
+        createTerminal();
 
     return static_cast<QTermWidget *>(m_tabWidget->currentWidget());
 }
@@ -413,9 +482,6 @@ TerminalWindow::TerminalWindow(QObject *parent)
     , m_context(new Core::IContext(this))
     , m_terminalContainer(nullptr)
 {
-    QCoreApplication::setOrganizationName("TermPlugin");
-    QCoreApplication::setOrganizationDomain("TermPlugin");
-
     Core::Context context("Terminal.Window");
     m_context->setContext(context);
 
@@ -427,46 +493,28 @@ TerminalWindow::TerminalWindow(QObject *parent)
     connect(Core::EditorManager::instance(), &Core::EditorManager::currentEditorChanged,
             this, [this](Core::IEditor *editor) { m_sync->setEnabled(editor); });
 
-    m_addTab = new QToolButton();
-    m_addTab->setIcon(Utils::Icons::PLUS_TOOLBAR.icon());
-    m_addTab->setEnabled(true);
-    m_addTab->setToolTip(tr("Create new Terminal"));
+    m_addTerminal = new QToolButton();
+    m_addTerminal->setIcon(Utils::Icons::PLUS_TOOLBAR.icon());
+    m_addTerminal->setEnabled(true);
+    m_addTerminal->setToolTip(tr("Create new Terminal"));
 
-    connect(m_addTab, &QAbstractButton::clicked, this, &TerminalWindow::newTab);
+    connect(m_addTerminal, &QAbstractButton::clicked, this, &TerminalWindow::newTerminal);
 
-    m_colorScheme = new QToolButton();
-    m_colorScheme->setIcon(Utils::Icons::SETTINGS_TOOLBAR.icon());
-    m_colorScheme->setEnabled(true);
-    m_colorScheme->setToolTip(tr("Color Scheme"));
+    m_settings = new QToolButton();
+    m_settings->setIcon(Utils::Icons::SETTINGS_TOOLBAR.icon());
+    m_settings->setEnabled(true);
+    m_settings->setToolTip(tr("Color Scheme"));
 
-    m_colorScheme->setMenu(new QMenu(m_colorScheme));
-    m_colorScheme->setPopupMode(QToolButton::InstantPopup);
+    m_settings->setMenu(new QMenu(m_settings));
+    m_settings->setPopupMode(QToolButton::InstantPopup);
 
-    connect(m_colorScheme, &QAbstractButton::pressed, this, &TerminalWindow::colorScheme);
-
-    // Try to get the saved color scheme. If it doesn't exist, set the default and
-    // update the saved scheme. If it does exist, use that to set the terminal's scheme.
-    QSettings settings;
-    QString file = settings.fileName();
-    QString savedColorScheme = settings.value("colorScheme").toString();
-    if (savedColorScheme.isEmpty()) {
-#if defined(Q_OS_LINUX)
-        m_currentColorScheme = "DarkPastels";
-#elif defined(Q_OS_MACX)
-        m_currentColorScheme = "WhiteOnBlack";
-#else
-        m_currentColorScheme = "BlackOnLightYellow";
-#endif
-        settings.setValue("colorScheme", m_currentColorScheme);
-    } else {
-        m_currentColorScheme = savedColorScheme;
-    }
+    connect(m_settings, &QAbstractButton::pressed, this, &TerminalWindow::setSettingsMenu);
 }
 
 QWidget *TerminalWindow::outputWidget(QWidget *parent)
 {
     if (!m_terminalContainer) {
-        m_terminalContainer = new TerminalContainer(parent, m_currentColorScheme);
+        m_terminalContainer = new TerminalContainer(parent);
         connect(m_terminalContainer, &TerminalContainer::finished,
                 this, &TerminalWindow::terminalFinished);
 
@@ -481,14 +529,14 @@ QWidget *TerminalWindow::outputWidget(QWidget *parent)
         agg->add(m_terminalContainer);
         agg->add(findSupport);
 
-        colorScheme();
+        setSettingsMenu();
     }
     return m_terminalContainer;
 }
 
 QList<QWidget *> TerminalWindow::toolBarWidgets() const
 {
-    return { m_sync, m_addTab, m_colorScheme };
+    return { m_sync, m_addTerminal, m_settings };
 }
 
 QString TerminalWindow::displayName() const
@@ -518,44 +566,26 @@ void TerminalWindow::sync()
         m_terminalContainer->termWidget()->changeDir(docPath);
 }
 
-void TerminalWindow::newTab()
+void TerminalWindow::newTerminal()
 {
     if (m_terminalContainer)
-        m_terminalContainer->createTab();
+        m_terminalContainer->createTerminal();
 }
 
-void TerminalWindow::colorScheme()
+void TerminalWindow::setSettingsMenu()
 {
     if (!m_terminalContainer || !m_terminalContainer->termWidget())
         return;
 
-    m_colorScheme->menu()->clear();
-    QTermWidget *terminal = m_terminalContainer->termWidget();
-    QStringList schemes = terminal->availableColorSchemes();
-    schemes.sort();
-    for(QString &scheme : schemes) {
-        QAction *action = new QAction(scheme,  m_colorScheme->menu());
-        if(scheme == m_currentColorScheme) {
-            QFont font = action->font();
-            font.setBold(true);
-            font.setItalic(true);
-            action->setFont(font);
-        }
-        connect(action, &QAction::triggered, this, [=] {
-            this->m_currentColorScheme = scheme;
-            this->m_terminalContainer->setColorScheme(scheme);
-            QSettings settings;
-            QString file = settings.fileName();
-            settings.setValue("colorScheme", this->m_currentColorScheme);
-            this->m_colorScheme->menu()->clear();
-        });
-        m_colorScheme->menu()->addAction(action);
-    }
+    m_settings->menu()->deleteLater();
+    QMenu *menu = new QMenu(m_settings);
+    m_terminalContainer->fillContextMenu(menu);
+    m_settings->setMenu(menu);
 }
 
 void TerminalWindow::terminalFinished()
 {
-    m_terminalContainer->closeAllTabs();
+    m_terminalContainer->closeAllTerminals();
 }
 
 void TerminalWindow::setFocus()
@@ -597,7 +627,7 @@ void TerminalWindow::goToNext()
     if (!m_terminalContainer)
         return;
 
-    m_terminalContainer->nextTab();
+    m_terminalContainer->nextTerminal();
 }
 
 void TerminalWindow::goToPrev()
@@ -605,7 +635,7 @@ void TerminalWindow::goToPrev()
     if (!m_terminalContainer)
         return;
 
-    m_terminalContainer->prevTab();
+    m_terminalContainer->prevTerminal();
 }
 
 } // namespace Internal

@@ -23,17 +23,18 @@ class TerminalContainer : public QWidget
     Q_OBJECT
 
 public:
-    TerminalContainer(QWidget *parent, const QString &colorScheme);
+    TerminalContainer(QWidget *parent);
     QTermWidget *initializeTerm(const QString &workingDirectory = QString());
 
     QTermWidget *termWidget();
     QString currentDocumentPath() const;
-    void closeAllTabs();
-    void createTab();
-    void nextTab();
-    void prevTab();
-    void closeCurrentTab();
+    void closeAllTerminals();
+    void createTerminal();
+    void nextTerminal();
+    void prevTerminal();
+    void closeCurrentTerminal();
     void setColorScheme(const QString &scheme);
+    void fillContextMenu(QMenu *menu);
 
 signals:
     void termWidgetChanged(QTermWidget * termWdiget);
@@ -44,24 +45,31 @@ private slots:
     void copyAvailable(bool);
     void copyInvoked();
     void pasteInvoked();
-    void closeInvoked();
-    void closeTab(int tabIndex);
-    void currentTabChanged(int tabIndex);
-    void renameCurrentTab();
-    void renameTabId(int index);
+    void closeTerminal();
+    void closeTerminalId(int index);
+    void currentTabChanged(int index);
+    void renameCurrentTerminal();
     void tabBarDoubleClick(int index);
-    void moveTabLeft();
-    void moveTabRight();
+    void moveTerminalLeft();
+    void moveTerminalRight();
 
 private:
+    void setTabActions();
+    void fillColorSchemeMenu(QMenu *menu);
+    void renameTerminal(int index);
+
     QVBoxLayout *m_layout;
     QTabWidget  *m_tabWidget;
     QAction *m_copy;
     QAction *m_paste;
-    QAction *m_closeAll;
-    QAction *m_newTab;
-    QAction *m_renameTab;
-    QWidget *m_parent;
+    QAction *m_newTerminal;
+    QAction *m_closeTerminal;
+    QAction *m_renameTerminal;
+    QAction *m_nextTerminal;
+    QAction *m_prevTerminal;
+    QAction *m_moveTerminalRight;
+    QAction *m_moveTerminalLeft;
+    QAction *m_closeAllTerminals;
     QString m_currentColorScheme;
 };
 
@@ -90,16 +98,15 @@ public:
 private slots:
     void terminalFinished();
     void sync();
-    void newTab();
-    void colorScheme();
+    void newTerminal();
+    void setSettingsMenu();
 
 private:
     Core::IContext *m_context;
     TerminalContainer *m_terminalContainer;
     QToolButton *m_sync;
-    QToolButton *m_addTab;
-    QToolButton *m_colorScheme;
-    QString m_currentColorScheme;
+    QToolButton *m_addTerminal;
+    QToolButton *m_settings;
 };
 
 } // namespace Internal
