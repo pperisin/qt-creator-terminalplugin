@@ -26,7 +26,6 @@
 #include <QVBoxLayout>
 #include <QTabWidget>
 #include <QTabBar>
-#include <QInputDialog>
 #include <QLabel>
 #include <QVector>
 
@@ -61,6 +60,9 @@ TerminalContainer::TerminalContainer(QWidget *parent)
         m_currentColorScheme = savedColorScheme;
     }
 
+    if (!settings.contains("terminalFont"))
+        settings.setValue("terminalFont", TextEditor::TextEditorSettings::instance()->fontSettings().font());
+
     setContextMenuPolicy(Qt::CustomContextMenu);
     connect(this, &QWidget::customContextMenuRequested,
             this, &TerminalContainer::contextMenuRequested);
@@ -88,17 +90,31 @@ TerminalContainer::TerminalContainer(QWidget *parent)
 
     m_copy = new QAction("Copy", this);
     addAction(m_copy);
-    m_copy->setShortcut(QKeySequence(tr("Ctrl+C")));
+    m_copy->setShortcut(QKeySequence(tr("Ctrl+Shift+C")));
     m_copy->setShortcutVisibleInContextMenu(true);
     m_copy->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
     connect(m_copy, &QAction::triggered, this, &TerminalContainer::copyInvoked);
 
     m_paste = new QAction("Paste", this);
     addAction(m_paste);
-    m_paste->setShortcut(QKeySequence(tr("Ctrl+V")));
+    m_paste->setShortcut(QKeySequence(tr("Ctrl+Shift+V")));
     m_paste->setShortcutVisibleInContextMenu(true);
     m_paste->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
     connect(m_paste, &QAction::triggered, this, &TerminalContainer::pasteInvoked);
+
+    m_increaseFont = new QAction("Increase Font", this);
+    addAction(m_increaseFont);
+    m_increaseFont->setShortcut(QKeySequence(tr("Ctrl++")));
+    m_increaseFont->setShortcutVisibleInContextMenu(true);
+    m_increaseFont->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(m_increaseFont, &QAction::triggered, this, &TerminalContainer::increaseFont);
+
+    m_decreaseFont = new QAction("Decrease Font", this);
+    addAction(m_decreaseFont);
+    m_decreaseFont->setShortcut(QKeySequence(tr("Ctrl+-")));
+    m_decreaseFont->setShortcutVisibleInContextMenu(true);
+    m_decreaseFont->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(m_decreaseFont, &QAction::triggered, this, &TerminalContainer::decreaseFont);
 
     m_newTerminal = new QAction("New Terminal", this);
     addAction(m_newTerminal);
@@ -109,7 +125,7 @@ TerminalContainer::TerminalContainer(QWidget *parent)
 
     m_closeTerminal = new QAction("Close Terminal", this);
     addAction(m_closeTerminal);
-    m_closeTerminal->setShortcut(QKeySequence(tr("Ctrl+D")));
+    m_closeTerminal->setShortcut(QKeySequence(tr("Ctrl+Shift+D")));
     m_closeTerminal->setShortcutVisibleInContextMenu(true);
     m_closeTerminal->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
     connect(m_closeTerminal, &QAction::triggered, this, &TerminalContainer::closeTerminal);
@@ -166,7 +182,8 @@ QTermWidget* TerminalContainer::initializeTerm(const QString & workingDirectory)
 
     termWidget->setColorScheme(m_currentColorScheme);
 
-    QFont font = TextEditor::TextEditorSettings::instance()->fontSettings().font();
+    QSettings settings;
+    QFont font = settings.value("terminalFont", QFont()).value<QFont>();
     termWidget->setTerminalFont(font);
     termWidget->setTerminalOpacity(1.0);
 
@@ -177,6 +194,7 @@ QTermWidget* TerminalContainer::initializeTerm(const QString & workingDirectory)
 
     termWidget->setWorkingDirectory(workingDirectory.isEmpty() ? QDir::homePath()
                                                                : workingDirectory);
+
     Utils::Environment env = Utils::Environment::systemEnvironment();
     env.set("TERM_PROGRAM", QString("qtermwidget5"));
     env.set("TERM", QString("xterm-256color"));
@@ -262,6 +280,8 @@ void TerminalContainer::fillContextMenu(QMenu *menu)
     menu->addAction(m_copy);
     menu->addAction(m_paste);
     menu->addSeparator();
+    menu->addAction(m_increaseFont);
+    menu->addAction(m_decreaseFont);
     menu->addMenu(colorSchemeMenu);
     menu->addSeparator();
     menu->addAction(m_newTerminal);
@@ -311,6 +331,42 @@ void TerminalContainer::pasteInvoked()
 void TerminalContainer::copyAvailable(bool available)
 {
     m_copy->setEnabled(available);
+}
+
+void TerminalContainer::increaseFont()
+{
+    QFont termFont = termWidget()->getTerminalFont();
+
+    if (termFont.pointSize() == -1 || termFont.pointSize() >= 32)
+        return;
+
+    termFont.setPointSize(termFont.pointSize() + 1);
+
+    for (int i = 0; i < m_tabWidget->count(); i++) {
+        QTermWidget *term = static_cast<QTermWidget *>(m_tabWidget->widget(i));
+        term->setTerminalFont(termFont);
+    }
+
+    QSettings settings;
+    settings.setValue("terminalFont", termFont);
+}
+
+void TerminalContainer::decreaseFont()
+{
+    QFont termFont = termWidget()->getTerminalFont();
+
+    if (termFont.pointSize() <= 6)
+        return;
+
+    termFont.setPointSize(termFont.pointSize() - 1);
+
+    for (int i = 0; i < m_tabWidget->count(); i++) {
+        QTermWidget *term = static_cast<QTermWidget *>(m_tabWidget->widget(i));
+        term->setTerminalFont(termFont);
+    }
+
+    QSettings settings;
+    settings.setValue("terminalFont", termFont);
 }
 
 void TerminalContainer::closeTerminal()
@@ -562,8 +618,10 @@ void TerminalWindow::sync()
     if (!m_terminalContainer || !m_terminalContainer->termWidget())
         return;
     QString docPath = m_terminalContainer->currentDocumentPath();
-    if (!docPath.isEmpty())
+    if (!docPath.isEmpty()) {
         m_terminalContainer->termWidget()->changeDir(docPath);
+        m_terminalContainer->termWidget()->setFocus();
+    }
 }
 
 void TerminalWindow::newTerminal()

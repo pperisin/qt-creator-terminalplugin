@@ -46,6 +46,8 @@ private slots:
     void copyInvoked();
     void pasteInvoked();
     void closeTerminal();
+    void increaseFont();
+    void decreaseFont();
     void closeTerminalId(int index);
     void currentTabChanged(int index);
     void renameCurrentTerminal();
@@ -62,6 +64,8 @@ private:
     QTabWidget  *m_tabWidget;
     QAction *m_copy;
     QAction *m_paste;
+    QAction *m_increaseFont;
+    QAction *m_decreaseFont;
     QAction *m_newTerminal;
     QAction *m_closeTerminal;
     QAction *m_renameTerminal;
