@@ -1,12 +1,15 @@
-Forked for new desired features. 
-IN PROGRESS/WORKING - Adding a right click menu to select and change the color scheme of the terminal on the fly, and persistently retain settings. 
-TODO - Add font type and size selection. 
-       Better build documentation.
-       Fix whitespace - I messed it up.
-       Document changes. Remove test code. 
+Terminal plugin for Qt Creator.
 
-Prevous readme below:
-=====================
+Plugin supports:
+- Opening multiple terminals in tabs, as well as manipulating tabs
+- Selecting terminal look based on
+- Copy, paste, search in currently selected terminal
+- Increase and decrease font size
+- Opening file in QU creator based on text selected in terminal, if:
+  - text with full file path is selected in terminal
+  - text with file name is selected in terminal, and file is located in
+    current directory of terminal
+
 Compilation
 
 To compile the terminalplugin, you need to define two environment variables:

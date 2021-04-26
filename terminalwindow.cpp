@@ -603,7 +603,7 @@ TerminalWindow::TerminalWindow(QObject *parent)
     m_settings = new QToolButton();
     m_settings->setIcon(Utils::Icons::SETTINGS_TOOLBAR.icon());
     m_settings->setEnabled(true);
-    m_settings->setToolTip(tr("Color Scheme"));
+    m_settings->setToolTip(tr("Settings"));
 
     m_settings->setMenu(new QMenu(m_settings));
     m_settings->setPopupMode(QToolButton::InstantPopup);
