@@ -2,10 +2,10 @@ Terminal plugin for Qt Creator.
 
 Plugin supports:
 - Opening multiple terminals in tabs, as well as manipulating tabs
-- Selecting terminal look based on
-- Copy, paste, search in currently selected terminal
+- Selecting terminal look based on QTermWidget color schemes
+- Copy, paste and search in currently selected terminal
 - Increase and decrease font size
-- Opening file in QU creator based on text selected in terminal, if:
+- Opening file in Qt Creator based on text selected in terminal, if:
   - text with full file path is selected in terminal
   - text with file name is selected in terminal, and file is located in
     current directory of terminal
