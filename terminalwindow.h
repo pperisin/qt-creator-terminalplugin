@@ -15,6 +15,8 @@ QT_FORWARD_DECLARE_CLASS(QTermWidget);
 QT_FORWARD_DECLARE_CLASS(QToolButton);
 QT_FORWARD_DECLARE_CLASS(QTabWidget);
 
+class QFileInfo;
+
 namespace Terminal {
 namespace Internal {
 
@@ -43,6 +45,7 @@ signals:
 private slots:
     void contextMenuRequested(const QPoint &);
     void copyAvailable(bool);
+    void openSelectedFile();
     void copyInvoked();
     void pasteInvoked();
     void closeTerminal();
@@ -57,11 +60,13 @@ private slots:
 
 private:
     void setTabActions();
+    QFileInfo getSelectedFilePath();
     void fillColorSchemeMenu(QMenu *menu);
     void renameTerminal(int index);
 
     QVBoxLayout *m_layout;
     QTabWidget  *m_tabWidget;
+    QAction *m_openSelection;
     QAction *m_copy;
     QAction *m_paste;
     QAction *m_increaseFont;

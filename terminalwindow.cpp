@@ -9,6 +9,7 @@
 #include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/editormanager/ieditor.h>
 #include <coreplugin/find/basetextfind.h>
+#include <coreplugin/mainwindow.h>
 #include <coreplugin/icontext.h>
 #include <coreplugin/icore.h>
 #include <extensionsystem/pluginmanager.h>
@@ -28,6 +29,7 @@
 #include <QTabBar>
 #include <QLabel>
 #include <QVector>
+#include <QFileInfo>
 
 #include <qtermwidget5/qtermwidget.h>
 #include "findsupport.h"
@@ -87,6 +89,13 @@ TerminalContainer::TerminalContainer(QWidget *parent)
     m_layout->setSpacing(0);
     m_layout->addWidget(m_tabWidget);
     setLayout(m_layout);
+
+    m_openSelection = new QAction("Open Selected File", this);
+    addAction(m_openSelection);
+    m_openSelection->setShortcut(QKeySequence(tr("Ctrl+Alt+O")));
+    m_openSelection->setShortcutVisibleInContextMenu(true);
+    m_openSelection->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
+    connect(m_openSelection, &QAction::triggered, this, &TerminalContainer::openSelectedFile);
 
     m_copy = new QAction("Copy", this);
     addAction(m_copy);
@@ -272,10 +281,35 @@ void TerminalContainer::contextMenuRequested(const QPoint &point)
     menu.exec(mapToGlobal(point));
 }
 
+QFileInfo TerminalContainer::getSelectedFilePath()
+{
+    QString selectedText = termWidget()->selectedText(false).trimmed();
+    QFileInfo file(selectedText);
+
+    if (file.exists() && !file.isDir())
+        return file;
+
+    QString dir = termWidget()->workingDirectory();
+    file = QFileInfo(QDir(dir), selectedText);
+
+    if (file.exists() && !file.isDir())
+        return file;
+
+    return QFileInfo();
+}
+
 void TerminalContainer::fillContextMenu(QMenu *menu)
 {
     QMenu *colorSchemeMenu = new QMenu("Color Schemes", menu);
     fillColorSchemeMenu(colorSchemeMenu);
+
+    QFileInfo file = getSelectedFilePath();
+
+    if (file.exists()) {
+        m_openSelection->setText("Open \"" + file.fileName() + "\"");
+        menu->addAction(m_openSelection);
+        menu->addSeparator();
+    }
 
     menu->addAction(m_copy);
     menu->addAction(m_paste);
@@ -315,6 +349,16 @@ void TerminalContainer::fillColorSchemeMenu(QMenu *menu)
             settings.setValue("colorScheme", m_currentColorScheme);
         });
         menu->addAction(action);
+    }
+}
+
+void TerminalContainer::openSelectedFile()
+{
+    QFileInfo file = getSelectedFilePath();
+
+    if (file.exists()) {
+        Core::ICore::openFiles(QStringList() << file.absoluteFilePath(),
+                               Core::ICore::OpenFilesFlags(Core::ICore::SwitchMode));
     }
 }
 
