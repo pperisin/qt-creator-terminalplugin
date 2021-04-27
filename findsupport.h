@@ -6,10 +6,10 @@
 
 #include <coreplugin/find/ifindsupport.h>
 
-QT_FORWARD_DECLARE_CLASS(QAction);
+QT_FORWARD_DECLARE_CLASS(QAction)
 QT_FORWARD_DECLARE_CLASS(QLineEdit)
-QT_FORWARD_DECLARE_CLASS(QTermWidget);
-QT_FORWARD_DECLARE_CLASS(QToolButton);
+QT_FORWARD_DECLARE_CLASS(QTermWidget)
+QT_FORWARD_DECLARE_CLASS(QToolButton)
 
 namespace Terminal {
 namespace Internal {

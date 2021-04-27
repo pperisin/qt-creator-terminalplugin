@@ -30,7 +30,7 @@ namespace Internal {
     methods.
 */
 TerminalPlugin::TerminalPlugin()
-    : m_window(0)
+    : m_window(nullptr)
 {
 }
 
@@ -41,7 +41,7 @@ TerminalPlugin::~TerminalPlugin()
 {
     ExtensionSystem::PluginManager::instance()->removeObject(m_window);
     delete m_window;
-    m_window = 0;
+    m_window = nullptr;
 }
 
 /*! Initializes the plugin. Returns true on success.

@@ -69,7 +69,7 @@ TerminalContainer::TerminalContainer(QWidget *parent)
     connect(this, &QWidget::customContextMenuRequested,
             this, &TerminalContainer::contextMenuRequested);
 
-    m_tabWidget = new QTabWidget;
+    m_tabWidget = new QTabWidget(this);
     m_tabWidget->addTab(initializeTerm(), "terminal");
     m_tabWidget->setDocumentMode(true);
     m_tabWidget->setTabsClosable(true);
@@ -358,7 +358,7 @@ void TerminalContainer::openSelectedFile()
 
     if (file.exists()) {
         Core::ICore::openFiles(QStringList() << file.absoluteFilePath(),
-                               Core::ICore::OpenFilesFlags(Core::ICore::SwitchMode));
+                               Core::ICore::SwitchMode);
     }
 }
 
@@ -444,14 +444,15 @@ void TerminalContainer::renameTerminal(int index)
 
     connect(lineEdit, &QLineEdit::returnPressed,
             this, [this, lineEdit, index]() {
-        this->m_tabWidget->setTabText(index, lineEdit->text());
-        this->m_tabWidget->currentWidget()->setFocus();
+        m_tabWidget->setTabText(index, lineEdit->text());
+        m_tabWidget->currentWidget()->setFocus();
         lineEdit->deleteLater();
     });
 
     connect(lineEdit, &QLineEdit::editingFinished,
             this, [this, lineEdit]() {
-        this->m_tabWidget->currentWidget()->setFocus();
+        if (m_tabWidget->underMouse())
+            m_tabWidget->currentWidget()->setFocus();
         lineEdit->deleteLater();
     });
 
