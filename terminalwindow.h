@@ -44,6 +44,7 @@ signals:
 
 private slots:
     void contextMenuRequested(const QPoint &);
+    void urlActivated(const QUrl&, bool);
     void copyAvailable(bool);
     void openSelectedFile();
     void copyInvoked();

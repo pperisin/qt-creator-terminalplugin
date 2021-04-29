@@ -10,13 +10,13 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(QtCreator COMPONENTS Core TextEditor REQUIRED)
+find_package(QtCreator COMPONENTS Core TextEditor ProjectExplorer REQUIRED)
 find_package(Qt5 COMPONENTS Widgets REQUIRED)
 find_package(qtermwidget5 REQUIRED)
 
 add_qtc_plugin(TerminalPlugin
   PLUGIN_DEPENDS
-    QtCreator::Core QtCreator::TextEditor
+    QtCreator::Core QtCreator::TextEditor QtCreator::ProjectExplorer
   DEPENDS Qt5::Widgets qtermwidget5
   SOURCES
     terminalplugin.cpp terminalplugin.h

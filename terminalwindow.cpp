@@ -13,6 +13,9 @@
 #include <coreplugin/icontext.h>
 #include <coreplugin/icore.h>
 #include <extensionsystem/pluginmanager.h>
+#include <projectexplorer/projecttree.h>
+#include <projectexplorer/project.h>
+#include <projectexplorer/session.h>
 #include <texteditor/fontsettings.h>
 #include <texteditor/texteditorsettings.h>
 #include <utils/environment.h>
@@ -30,6 +33,8 @@
 #include <QLabel>
 #include <QVector>
 #include <QFileInfo>
+#include <QDesktopServices>
+#include <QGuiApplication>
 
 #include <qtermwidget5/qtermwidget.h>
 #include "findsupport.h"
@@ -200,6 +205,7 @@ QTermWidget* TerminalContainer::initializeTerm(const QString & workingDirectory)
 
     connect(termWidget, &QTermWidget::copyAvailable, this, &TerminalContainer::copyAvailable);
     connect(termWidget, &QTermWidget::finished, this, &TerminalContainer::finished);
+    connect(termWidget, &QTermWidget::urlActivated, this, &TerminalContainer::urlActivated);
 
     termWidget->setWorkingDirectory(workingDirectory.isEmpty() ? QDir::homePath()
                                                                : workingDirectory);
@@ -281,6 +287,8 @@ void TerminalContainer::contextMenuRequested(const QPoint &point)
     menu.exec(mapToGlobal(point));
 }
 
+
+
 QFileInfo TerminalContainer::getSelectedFilePath()
 {
     QString selectedText = termWidget()->selectedText(false).trimmed();
@@ -294,6 +302,23 @@ QFileInfo TerminalContainer::getSelectedFilePath()
 
     if (file.exists() && !file.isDir())
         return file;
+
+    ProjectExplorer::Project *project = ProjectExplorer::ProjectTree::currentProject();
+
+    if (!project)
+        return QFileInfo();
+
+    Utils::FilePaths fileList = project->files(ProjectExplorer::Project::AllFiles);
+
+    for (Utils::FilePath& projectsFile : fileList)
+        if (projectsFile.endsWith(selectedText))
+            return QFileInfo(projectsFile.toString());
+
+    for (ProjectExplorer::Project *nonCurrentProj : ProjectExplorer::SessionManager::projects())
+        if (project != nonCurrentProj)
+            for (Utils::FilePath& projectsFile : nonCurrentProj->files(ProjectExplorer::Project::AllFiles))
+                if (projectsFile.endsWith(selectedText))
+                    return QFileInfo(projectsFile.toString());
 
     return QFileInfo();
 }
@@ -375,6 +400,12 @@ void TerminalContainer::pasteInvoked()
 void TerminalContainer::copyAvailable(bool available)
 {
     m_copy->setEnabled(available);
+}
+
+void TerminalContainer::urlActivated(const QUrl& url, bool)
+{
+    if (QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+        QDesktopServices::openUrl(url);
 }
 
 void TerminalContainer::increaseFont()
