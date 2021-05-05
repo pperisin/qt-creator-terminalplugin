@@ -43,10 +43,11 @@
 namespace Terminal {
 namespace Internal {
 
-TerminalContainer::TerminalContainer(QWidget *parent)
+TerminalContainer::TerminalContainer(QWidget *parent, QComboBox *m_toolbarTerminalsComboBox)
     : QWidget(parent)
     , m_layout(nullptr)
     , m_tabWidget(nullptr)
+    , m_toolbarTerminalsComboBox(m_toolbarTerminalsComboBox)
 {
     QCoreApplication::setOrganizationName("TermPlugin");
     QCoreApplication::setOrganizationDomain("TermPlugin");
@@ -77,7 +78,7 @@ TerminalContainer::TerminalContainer(QWidget *parent)
             this, &TerminalContainer::contextMenuRequested);
 
     m_tabWidget = new QTabWidget(this);
-    m_tabWidget->addTab(initializeTerm(), "terminal");
+    m_tabWidget->addTab(initializeTerm(), tr("terminal"));
     m_tabWidget->setDocumentMode(true);
     m_tabWidget->setTabsClosable(true);
     m_tabWidget->setMovable(true);
@@ -98,12 +99,6 @@ TerminalContainer::TerminalContainer(QWidget *parent)
     m_layout->addWidget(m_tabWidget);
     setLayout(m_layout);
 
-    m_terminalsBox = new QComboBox(this);
-    m_terminalsBox->setProperty("drawleftborder", true);
-    m_terminalsBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-    connect(m_terminalsBox, QOverload<int>::of(&QComboBox::activated),
-            this, &TerminalContainer::setCurrentComboBoxIndex);
-
     m_openSelection = new QAction("Open Selected File", this);
     addAction(m_openSelection);
     m_openSelection->setShortcut(QKeySequence(tr("Ctrl+Alt+O")));
@@ -111,8 +106,9 @@ TerminalContainer::TerminalContainer(QWidget *parent)
     m_openSelection->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
     connect(m_openSelection, &QAction::triggered, this, &TerminalContainer::openSelectedFile);
 
-    m_showTabs = new QAction(this);
-    connect(m_showTabs, &QAction::triggered, this, &TerminalContainer::toggleShowTabs);
+    m_showHideTabs = new QAction(this);
+    m_showHideTabs->setText(hideTabs ? tr("Show Tabs") : tr("Hide Tabs"));
+    connect(m_showHideTabs, &QAction::triggered, this, &TerminalContainer::toggleShowTabs);
 
     m_copy = new QAction("Copy", this);
     addAction(m_copy);
@@ -196,37 +192,10 @@ TerminalContainer::TerminalContainer(QWidget *parent)
     m_closeAllTerminals->setShortcutContext(Qt::ShortcutContext::WidgetWithChildrenShortcut);
     connect(m_closeAllTerminals, &QAction::triggered, this, &TerminalContainer::closeAllTerminals);
 
-    m_addTerminal = new QToolButton();
-    m_addTerminal->setIcon(Utils::Icons::PLUS_TOOLBAR.icon());
-    m_addTerminal->setEnabled(true);
-    m_addTerminal->setToolTip(tr("Create new Terminal"));
-
-    connect(m_addTerminal, &QAbstractButton::clicked, this, &TerminalContainer::createTerminal);
-
-    m_removeTerminal = new QToolButton();
-    m_removeTerminal->setIcon(Utils::Icons::CLOSE_TOOLBAR.icon());
-    m_removeTerminal->setEnabled(true);
-    m_removeTerminal->setToolTip(tr("Remove current Terminal"));
-
-    connect(m_removeTerminal, &QAbstractButton::clicked, this, &TerminalContainer::closeTerminal);
-
-    m_spacer1 = new QWidget();
-    m_spacer2 = new QWidget();
-    m_spacer1->setMinimumWidth(30);
-    m_spacer2->setMinimumWidth(5);
-    m_terminalsLabel = new QLabel(tr("Terminals:"));
-
+    m_colorSchemes = new QMenu("Color Schemes", this);
+    fillColorSchemeMenu();
     setTabActions();
-    refreshComboBox();
-}
-
-TerminalContainer::~TerminalContainer()
-{
-    delete m_terminalsLabel;
-    delete m_spacer1;
-    delete m_spacer2;
-    delete m_addTerminal;
-    delete m_removeTerminal;
+    notifyTabsUpdated();
 }
 
 QTermWidget* TerminalContainer::initializeTerm(const QString & workingDirectory)
@@ -284,7 +253,7 @@ void TerminalContainer::closeAllTerminals()
 
     createTerminal();
     setTabActions();
-    refreshComboBox();
+    notifyTabsUpdated();
 }
 
 void TerminalContainer::closeCurrentTerminal()
@@ -298,7 +267,7 @@ void TerminalContainer::closeCurrentTerminal()
         createTerminal();
 
     setTabActions();
-    refreshComboBox();
+    notifyTabsUpdated();
 }
 
 void TerminalContainer::closeTerminalId(int index)
@@ -312,7 +281,7 @@ void TerminalContainer::closeTerminalId(int index)
     m_tabWidget->setFocus();
     m_tabWidget->currentWidget()->setFocus();
     setTabActions();
-    refreshComboBox();
+    notifyTabsUpdated();
 }
 
 void TerminalContainer::currentTabChanged(int index)
@@ -320,7 +289,7 @@ void TerminalContainer::currentTabChanged(int index)
     if (index <0 || index >= m_tabWidget->count())
         return;
 
-    refreshComboBox();
+    notifyTabsUpdated();
     emit termWidgetChanged(termWidget());
 }
 
@@ -369,9 +338,6 @@ QFileInfo TerminalContainer::getSelectedFilePath()
 
 void TerminalContainer::fillContextMenu(QMenu *menu)
 {
-    QMenu *colorSchemeMenu = new QMenu("Color Schemes", menu);
-    fillColorSchemeMenu(colorSchemeMenu);
-
     QFileInfo file = getSelectedFilePath();
 
     if (file.exists()) {
@@ -380,12 +346,8 @@ void TerminalContainer::fillContextMenu(QMenu *menu)
         menu->addSeparator();
     }
 
-    if (m_tabWidget->tabBar()->isHidden())
-        m_showTabs->setText(tr("Show Tabs"));
-    else
-        m_showTabs->setText(tr("Hide Tabs"));
-    menu->addAction(m_showTabs);
-    menu->addMenu(colorSchemeMenu);
+    menu->addAction(m_showHideTabs);
+    menu->addMenu(m_colorSchemes);
     menu->addSeparator();
     menu->addAction(m_copy);
     menu->addAction(m_paste);
@@ -405,12 +367,12 @@ void TerminalContainer::fillContextMenu(QMenu *menu)
     menu->addAction(m_closeAllTerminals);
 }
 
-void TerminalContainer::fillColorSchemeMenu(QMenu *menu)
+void TerminalContainer::fillColorSchemeMenu()
 {
     QStringList schemes = termWidget()->availableColorSchemes();
     schemes.sort();
     for(QString &scheme : schemes) {
-        QAction *action = new QAction(scheme, menu);
+        QAction *action = new QAction(scheme, m_colorSchemes);
         if(scheme == m_currentColorScheme) {
             QFont font = action->font();
             font.setBold(true);
@@ -422,24 +384,25 @@ void TerminalContainer::fillColorSchemeMenu(QMenu *menu)
             setColorScheme(scheme);
             QSettings settings;
             settings.setValue("colorScheme", m_currentColorScheme);
+
+            for (QAction *listAction : m_colorSchemes->actions()) {
+                QFont font = listAction->font();
+                font.setBold(listAction->text() == m_currentColorScheme);
+                font.setItalic(listAction->text() == m_currentColorScheme);
+                listAction->setFont(font);
+            }
         });
-        menu->addAction(action);
+        m_colorSchemes->addAction(action);
     }
 }
 
-QList<QWidget *> TerminalContainer::getToolbarWidgets()
+void TerminalContainer::notifyTabsUpdated()
 {
-    return { m_spacer1, m_terminalsLabel, m_spacer2, m_terminalsBox , m_addTerminal, m_removeTerminal};
-}
-
-void TerminalContainer::refreshComboBox()
-{
-    m_terminalsBox->clear();
-
+    QList<QString> tabs;
     for (int i = 0; i < m_tabWidget->count(); i++)
-        m_terminalsBox->addItem(QString("%1: %2").arg(QString::number(i + 1), m_tabWidget->tabText(i)));
+        tabs.append(m_tabWidget->tabText(i));
 
-    m_terminalsBox->setCurrentIndex(m_tabWidget->currentIndex());
+    emit tabsUpdated(m_tabWidget->currentIndex(), tabs);
 }
 
 void TerminalContainer::openSelectedFile()
@@ -456,6 +419,7 @@ void TerminalContainer::toggleShowTabs()
 {
     bool hide = !m_tabWidget->tabBar()->isHidden();
     m_tabWidget->tabBar()->setHidden(hide);
+    m_showHideTabs->setText(hide ? tr("Show Tabs") : tr("Hide Tabs"));
     QSettings settings;
     settings.setValue("hideTabs", hide);
 }
@@ -543,8 +507,8 @@ void TerminalContainer::renameTerminal(int index)
     QLineEdit *lineEdit;
     if (m_tabWidget->tabBar()->isHidden())
     {
-        lineEdit = new QLineEdit(m_terminalsBox);
-        lineEdit->setGeometry(m_terminalsBox->rect());
+        lineEdit = new QLineEdit(m_toolbarTerminalsComboBox);
+        lineEdit->setGeometry(m_toolbarTerminalsComboBox->rect());
     }
     else
     {
@@ -557,10 +521,13 @@ void TerminalContainer::renameTerminal(int index)
 
     connect(lineEdit, &QLineEdit::returnPressed,
             this, [this, lineEdit, index]() {
+        lineEdit->deleteLater();
+        if (lineEdit->text().isEmpty())
+            return;
+
         m_tabWidget->setTabText(index, lineEdit->text());
         m_tabWidget->currentWidget()->setFocus();
-        refreshComboBox();
-        lineEdit->deleteLater();
+        notifyTabsUpdated();
     });
 
     connect(lineEdit, &QLineEdit::editingFinished,
@@ -602,7 +569,7 @@ void TerminalContainer::createTerminal()
     m_tabWidget->setCurrentIndex(index);
     m_tabWidget->currentWidget()->setFocus();
     setTabActions();
-    refreshComboBox();
+    notifyTabsUpdated();
 
     emit termWidgetChanged(termWidget());
 }
@@ -619,7 +586,7 @@ void TerminalContainer::nextTerminal()
 
     m_tabWidget->setCurrentIndex(nextIndex);
     m_tabWidget->currentWidget()->setFocus();
-    refreshComboBox();
+    notifyTabsUpdated();
 
     emit termWidgetChanged(termWidget());
 }
@@ -636,7 +603,7 @@ void TerminalContainer::prevTerminal()
 
     m_tabWidget->setCurrentIndex(prevIndex);
     m_tabWidget->currentWidget()->setFocus();
-    refreshComboBox();
+    notifyTabsUpdated();
 
     emit termWidgetChanged(termWidget());
 }
@@ -652,7 +619,7 @@ void TerminalContainer::moveTerminalLeft()
     m_tabWidget->tabBar()->moveTab(currentIndex, nextIndex);
     m_tabWidget->setCurrentIndex(nextIndex);
     m_tabWidget->currentWidget()->setFocus();
-    refreshComboBox();
+    notifyTabsUpdated();
 }
 
 void TerminalContainer::moveTerminalRight()
@@ -666,7 +633,7 @@ void TerminalContainer::moveTerminalRight()
     m_tabWidget->tabBar()->moveTab(currentIndex, nextIndex);
     m_tabWidget->setCurrentIndex(nextIndex);
     m_tabWidget->currentWidget()->setFocus();
-    refreshComboBox();
+    notifyTabsUpdated();
 }
 
 void TerminalContainer::setColorScheme(const QString &scheme)
@@ -697,7 +664,7 @@ QTermWidget *TerminalContainer::termWidget()
     return static_cast<QTermWidget *>(m_tabWidget->currentWidget());
 }
 
-void TerminalContainer::setCurrentComboBoxIndex(int index)
+void TerminalContainer::setCurrentIndex(int index)
 {
     m_tabWidget->setCurrentIndex(index);
     m_tabWidget->currentWidget()->setFocus();
@@ -725,10 +692,26 @@ TerminalWindow::TerminalWindow(QObject *parent)
     m_settings->setEnabled(true);
     m_settings->setToolTip(tr("Settings"));
 
-    m_settings->setMenu(new QMenu(m_settings));
-    m_settings->setPopupMode(QToolButton::InstantPopup);
+    m_terminalsBox = new QComboBox();
+    m_terminalsBox->setProperty("drawleftborder", true);
+    m_terminalsBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    m_terminalsBox->addItem(tr("1: terminal"));
 
-    connect(m_settings, &QAbstractButton::pressed, this, &TerminalWindow::showSettings);
+    m_addTerminal = new QToolButton();
+    m_addTerminal->setIcon(Utils::Icons::PLUS_TOOLBAR.icon());
+    m_addTerminal->setEnabled(true);
+    m_addTerminal->setToolTip(tr("Create New Terminal"));
+
+    m_removeTerminal = new QToolButton();
+    m_removeTerminal->setIcon(Utils::Icons::CLOSE_TOOLBAR.icon());
+    m_removeTerminal->setEnabled(true);
+    m_removeTerminal->setToolTip(tr("Remove Current Terminal"));
+
+    m_spacer1 = new QWidget();
+    m_spacer2 = new QWidget();
+    m_spacer1->setMinimumWidth(30);
+    m_spacer2->setMinimumWidth(5);
+    m_terminalsLabel = new QLabel(tr("Terminals:"));
 }
 
 TerminalWindow::~TerminalWindow()
@@ -737,12 +720,17 @@ TerminalWindow::~TerminalWindow()
     delete m_sync;
     delete m_terminalContainer;
     delete m_context;
+    delete m_addTerminal;
+    delete m_removeTerminal;
+    delete m_spacer1;
+    delete m_spacer2;
+    delete m_terminalsLabel;
 }
 
 QWidget *TerminalWindow::outputWidget(QWidget *parent)
 {
     if (!m_terminalContainer) {
-        m_terminalContainer = new TerminalContainer(parent);
+        m_terminalContainer = new TerminalContainer(parent, m_terminalsBox);
         connect(m_terminalContainer, &TerminalContainer::finished,
                 this, &TerminalWindow::terminalFinished);
 
@@ -753,22 +741,34 @@ QWidget *TerminalWindow::outputWidget(QWidget *parent)
         connect(m_terminalContainer, &TerminalContainer::termWidgetChanged,
                 findSupport, &FindSupport::setTerminal);
 
+        connect(m_terminalsBox, QOverload<int>::of(&QComboBox::activated),
+                m_terminalContainer, &TerminalContainer::setCurrentIndex);
+
+        connect(m_addTerminal, &QAbstractButton::clicked,
+                m_terminalContainer, &TerminalContainer::createTerminal);
+
+        connect(m_removeTerminal, &QAbstractButton::clicked,
+                m_terminalContainer, &TerminalContainer::closeTerminal);
+
+        connect(m_terminalContainer, &TerminalContainer::tabsUpdated,
+                this, &TerminalWindow::tabsUpdated);
+
         Aggregation::Aggregate *agg = new Aggregation::Aggregate;
         agg->add(m_terminalContainer);
         agg->add(findSupport);
 
-        showSettings();
+        QMenu *menu = new QMenu(m_settings);
+        m_terminalContainer->fillContextMenu(menu);
+        m_settings->setMenu(menu);
+        m_settings->setPopupMode(QToolButton::InstantPopup);
     }
     return m_terminalContainer;
 }
 
 QList<QWidget *> TerminalWindow::toolBarWidgets() const
 {
-    QList<QWidget *> result = { m_sync, m_settings};
-    if (m_terminalContainer)
-        result.append(m_terminalContainer->getToolbarWidgets());
-
-    return result;
+    return { m_sync, m_settings, m_spacer1, m_terminalsLabel, m_spacer2,
+                m_terminalsBox , m_addTerminal, m_removeTerminal};
 }
 
 QString TerminalWindow::displayName() const
@@ -800,16 +800,16 @@ void TerminalWindow::sync()
     }
 }
 
-void TerminalWindow::showSettings()
+void TerminalWindow::tabsUpdated(int currentIndex, QList<QString> tabNames)
 {
-    if (!m_terminalContainer || !m_terminalContainer->termWidget())
-        return;
+    m_terminalsBox->clear();
 
-    m_settings->menu()->deleteLater();
-    QMenu *menu = new QMenu(m_settings);
-    m_terminalContainer->fillContextMenu(menu);
-    m_settings->setMenu(menu);
+    for(int i = 0; i < tabNames.count(); i++)
+        m_terminalsBox->addItem(QString("%1: %2").arg(QString::number(i + 1), tabNames[i]));
+
+    m_terminalsBox->setCurrentIndex(currentIndex);
 }
+
 
 void TerminalWindow::terminalFinished()
 {

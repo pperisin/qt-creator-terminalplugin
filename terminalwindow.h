@@ -26,34 +26,36 @@ class TerminalContainer : public QWidget
     Q_OBJECT
 
 public:
-    TerminalContainer(QWidget *parent);
-    virtual ~TerminalContainer();
+    TerminalContainer(QWidget *parent, QComboBox *m_toolbarTerminalsComboBox);
     QTermWidget *initializeTerm(const QString &workingDirectory = QString());
 
     QTermWidget *termWidget();
     QString currentDocumentPath() const;
     void closeAllTerminals();
-    void createTerminal();
     void nextTerminal();
     void prevTerminal();
     void closeCurrentTerminal();
     void setColorScheme(const QString &scheme);
     void fillContextMenu(QMenu *menu);
-    QList<QWidget *> getToolbarWidgets();
 
 signals:
     void termWidgetChanged(QTermWidget * termWdiget);
     void finished();
+    void tabsUpdated(int currentIndex, QList<QString> tabNames);
+
+public slots:
+    void setCurrentIndex(int index);
+    void closeTerminal();
+    void createTerminal();
+    void toggleShowTabs();
 
 private slots:
     void contextMenuRequested(const QPoint &);
     void urlActivated(const QUrl&, bool);
     void copyAvailable(bool);
     void openSelectedFile();
-    void toggleShowTabs();
     void copyInvoked();
     void pasteInvoked();
-    void closeTerminal();
     void increaseFont();
     void decreaseFont();
     void closeTerminalId(int index);
@@ -62,20 +64,19 @@ private slots:
     void tabBarDoubleClick(int index);
     void moveTerminalLeft();
     void moveTerminalRight();
-    void setCurrentComboBoxIndex(int index);
 
 private:
     void setTabActions();
     QFileInfo getSelectedFilePath();
-    void fillColorSchemeMenu(QMenu *menu);
+    void fillColorSchemeMenu();
     void renameTerminal(int index);
-    void refreshComboBox();
+    void notifyTabsUpdated();
 
     QVBoxLayout *m_layout;
     QTabWidget *m_tabWidget;
-    QComboBox *m_terminalsBox;
+    QComboBox *m_toolbarTerminalsComboBox;
     QAction *m_openSelection;
-    QAction *m_showTabs;
+    QAction *m_showHideTabs;
     QAction *m_copy;
     QAction *m_paste;
     QAction *m_increaseFont;
@@ -88,12 +89,8 @@ private:
     QAction *m_moveTerminalRight;
     QAction *m_moveTerminalLeft;
     QAction *m_closeAllTerminals;
+    QMenu *m_colorSchemes;
     QString m_currentColorScheme;
-    QToolButton *m_addTerminal;
-    QToolButton *m_removeTerminal;
-    QWidget* m_spacer1;
-    QLabel* m_terminalsLabel;
-    QWidget* m_spacer2;
 };
 
 class TerminalWindow : public Core::IOutputPane
@@ -122,13 +119,19 @@ public:
 private slots:
     void terminalFinished();
     void sync();
-    void showSettings();
+    void tabsUpdated(int currentIndex, QList<QString> tabNames);
 
 private:
     Core::IContext *m_context;
     TerminalContainer *m_terminalContainer;
     QToolButton *m_sync;
     QToolButton *m_settings;
+    QToolButton *m_addTerminal;
+    QToolButton *m_removeTerminal;
+    QWidget* m_spacer1;
+    QLabel* m_terminalsLabel;
+    QComboBox *m_terminalsBox;
+    QWidget* m_spacer2;
 };
 
 } // namespace Internal
