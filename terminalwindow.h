@@ -14,6 +14,7 @@ QT_FORWARD_DECLARE_CLASS(QVBoxLayout)
 QT_FORWARD_DECLARE_CLASS(QTermWidget)
 QT_FORWARD_DECLARE_CLASS(QToolButton)
 QT_FORWARD_DECLARE_CLASS(QTabWidget)
+QT_FORWARD_DECLARE_CLASS(QComboBox)
 
 class QFileInfo;
 
@@ -26,6 +27,7 @@ class TerminalContainer : public QWidget
 
 public:
     TerminalContainer(QWidget *parent);
+    virtual ~TerminalContainer();
     QTermWidget *initializeTerm(const QString &workingDirectory = QString());
 
     QTermWidget *termWidget();
@@ -37,6 +39,7 @@ public:
     void closeCurrentTerminal();
     void setColorScheme(const QString &scheme);
     void fillContextMenu(QMenu *menu);
+    QList<QWidget *> getToolbarWidgets();
 
 signals:
     void termWidgetChanged(QTermWidget * termWdiget);
@@ -47,6 +50,7 @@ private slots:
     void urlActivated(const QUrl&, bool);
     void copyAvailable(bool);
     void openSelectedFile();
+    void toggleShowTabs();
     void copyInvoked();
     void pasteInvoked();
     void closeTerminal();
@@ -58,16 +62,20 @@ private slots:
     void tabBarDoubleClick(int index);
     void moveTerminalLeft();
     void moveTerminalRight();
+    void setCurrentComboBoxIndex(int index);
 
 private:
     void setTabActions();
     QFileInfo getSelectedFilePath();
     void fillColorSchemeMenu(QMenu *menu);
     void renameTerminal(int index);
+    void refreshComboBox();
 
     QVBoxLayout *m_layout;
-    QTabWidget  *m_tabWidget;
+    QTabWidget *m_tabWidget;
+    QComboBox *m_terminalsBox;
     QAction *m_openSelection;
+    QAction *m_showTabs;
     QAction *m_copy;
     QAction *m_paste;
     QAction *m_increaseFont;
@@ -81,6 +89,11 @@ private:
     QAction *m_moveTerminalLeft;
     QAction *m_closeAllTerminals;
     QString m_currentColorScheme;
+    QToolButton *m_addTerminal;
+    QToolButton *m_removeTerminal;
+    QWidget* m_spacer1;
+    QLabel* m_terminalsLabel;
+    QWidget* m_spacer2;
 };
 
 class TerminalWindow : public Core::IOutputPane
@@ -89,6 +102,7 @@ class TerminalWindow : public Core::IOutputPane
 
 public:
     TerminalWindow(QObject *parent = nullptr);
+    ~TerminalWindow();
 
     // Pure virtual in IOutputPane
     virtual QWidget *outputWidget(QWidget *parent) override;
@@ -108,14 +122,12 @@ public:
 private slots:
     void terminalFinished();
     void sync();
-    void newTerminal();
-    void setSettingsMenu();
+    void showSettings();
 
 private:
     Core::IContext *m_context;
     TerminalContainer *m_terminalContainer;
     QToolButton *m_sync;
-    QToolButton *m_addTerminal;
     QToolButton *m_settings;
 };
 
