@@ -695,10 +695,11 @@ TerminalWindow::TerminalWindow(QObject *parent)
     m_terminalsBox = new QComboBox();
     m_terminalsBox->setProperty("drawleftborder", true);
     m_terminalsBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    m_terminalsBox->setMinimumWidth(150);
     m_terminalsBox->addItem(tr("1: terminal"));
 
     m_addTerminal = new QToolButton();
-    m_addTerminal->setIcon(Utils::Icons::PLUS_TOOLBAR.icon());
+    m_addTerminal->setIcon(Utils::Icons::FITTOVIEW_TOOLBAR.icon());
     m_addTerminal->setEnabled(true);
     m_addTerminal->setToolTip(tr("Create New Terminal"));
 
@@ -753,6 +754,12 @@ QWidget *TerminalWindow::outputWidget(QWidget *parent)
         connect(m_terminalContainer, &TerminalContainer::tabsUpdated,
                 this, &TerminalWindow::tabsUpdated);
 
+        connect(this, &TerminalWindow::zoomInRequested,
+                m_terminalContainer, &TerminalContainer::increaseFont);
+
+        connect(this, &TerminalWindow::zoomOutRequested,
+                m_terminalContainer, &TerminalContainer::decreaseFont);
+
         Aggregation::Aggregate *agg = new Aggregation::Aggregate;
         agg->add(m_terminalContainer);
         agg->add(findSupport);
@@ -767,7 +774,7 @@ QWidget *TerminalWindow::outputWidget(QWidget *parent)
 
 QList<QWidget *> TerminalWindow::toolBarWidgets() const
 {
-    return { m_sync, m_settings, m_spacer1, m_terminalsLabel, m_spacer2,
+    return IOutputPane::toolBarWidgets() + QList<QWidget *>{ m_sync, m_settings, m_spacer1, m_terminalsLabel, m_spacer2,
                 m_terminalsBox , m_addTerminal, m_removeTerminal};
 }
 

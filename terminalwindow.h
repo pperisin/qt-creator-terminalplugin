@@ -48,6 +48,8 @@ public slots:
     void closeTerminal();
     void createTerminal();
     void toggleShowTabs();
+    void increaseFont();
+    void decreaseFont();
 
 private slots:
     void contextMenuRequested(const QPoint &);
@@ -56,8 +58,6 @@ private slots:
     void openSelectedFile();
     void copyInvoked();
     void pasteInvoked();
-    void increaseFont();
-    void decreaseFont();
     void closeTerminalId(int index);
     void currentTabChanged(int index);
     void renameCurrentTerminal();
