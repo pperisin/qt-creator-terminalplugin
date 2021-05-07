@@ -695,7 +695,7 @@ TerminalWindow::TerminalWindow(QObject *parent)
     m_terminalsBox = new QComboBox();
     m_terminalsBox->setProperty("drawleftborder", true);
     m_terminalsBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-    m_terminalsBox->setMinimumWidth(150);
+    m_terminalsBox->setMinimumWidth(200);
     m_terminalsBox->addItem(tr("1: terminal"));
 
     m_addTerminal = new QToolButton();
