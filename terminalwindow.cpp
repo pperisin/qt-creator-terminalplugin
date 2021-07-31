@@ -22,6 +22,8 @@
 #include <utils/fileutils.h>
 #include <utils/utilsicons.h>
 #include <utils/qtcassert.h>
+#include <utils/algorithm.h>
+#include <utils/filepath.h>
 
 #include <QDir>
 #include <QIcon>
@@ -410,7 +412,7 @@ void TerminalContainer::openSelectedFile()
     QFileInfo file = getSelectedFilePath();
 
     if (file.exists()) {
-        Core::ICore::openFiles(QStringList() << file.absoluteFilePath(),
+        Core::ICore::openFiles(Utils::transform(QStringList() << file.absoluteFilePath(), &Utils::FilePath::fromString),
                                Core::ICore::SwitchMode);
     }
 }
